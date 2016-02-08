@@ -86,6 +86,7 @@ libcsound.csoundCompileArgs.argtypes = [c_void_p, c_int, POINTER(c_char_p)]
 libcsound.csoundStart.argtypes = [c_void_p]
 libcsound.csoundCompile.argtypes = [c_void_p, c_int, POINTER(c_char_p)]
 libcsound.csoundCompileCsd.argtypes = [c_void_p, c_char_p]
+libcsound.csoundCompileCsdText.argtypes = [c_void_p, c_char_p]
 
 libcsound.csoundPerform.argtypes = [c_void_p]
 libcsound.csoundPerformKsmps.argtypes = [c_void_p]
@@ -125,7 +126,6 @@ libcsound.csoundSetMIDIInput.argtypes = [c_void_p, c_char_p]
 libcsound.csoundSetMIDIFileInput.argtypes = [c_void_p, c_char_p]
 libcsound.csoundSetMIDIOutput.argtypes = [c_void_p, c_char_p]
 libcsound.csoundSetMIDIFileOutput.argtypes = [c_void_p, c_char_p]
-
 FILEOPENFUNC = CFUNCTYPE(None, c_void_p, c_char_p, c_int, c_int, c_int)
 libcsound.csoundSetFileOpenCallback.argtypes = [c_void_p, FILEOPENFUNC]
 
@@ -144,6 +144,7 @@ libcsound.csoundGetSpin.argtypes = [c_void_p]
 libcsound.csoundAddSpinSample.argtypes = [c_void_p, c_int, c_int, MYFLT]
 libcsound.csoundGetSpout.restype = POINTER(MYFLT)
 libcsound.csoundGetSpout.argtypes = [c_void_p]
+libcsound.csoundGetSpoutSample.restype = MYFLT
 libcsound.csoundGetSpoutSample.argtypes = [c_void_p, c_int, c_int]
 libcsound.csoundGetRtRecordUserData.restype = POINTER(c_void_p)
 libcsound.csoundGetRtRecordUserData.argtypes = [c_void_p]
@@ -184,7 +185,7 @@ class Csound:
     def __init__(self, hostData=None):
         """Creates an instance of Csound.
        
-        Returns an opaque pointer that must be passed to most Csound API
+        Get an opaque pointer that must be passed to most Csound API
         functions. The hostData parameter can be None, or it can be any
         sort of data; these data can be accessed from the Csound instance
         that is passed to callback routines.
@@ -294,7 +295,7 @@ class Csound:
         argc, argv = csoundArgList(args)
         return libcsound.csoundCompile(self.cs, argc, argv)
     
-    def compileCsd(csd):
+    def compileCsd(csd_filename):
         """Compile a Csound input file (.csd file).
         
         The input file includes command-line arguments, but does not
@@ -311,8 +312,27 @@ class Csound:
         NB: this function can be called during performance to
         replace or add new instruments and events.
         """
-        return libcsound.csoundCompileCsd(self.cs, cstring(csd))
+        return libcsound.csoundCompileCsd(self.cs, cstring(csd_filename))
     
+    def compileCsdText(csd_text):
+        """Compile a Csound input file contained in a string of text.
+        
+        The string of text includes command-line arguments, orchestra, score,
+        etc., but it is not performed. Returns a non-zero error code on failure.
+        In this (host-driven) mode, the sequence of calls should be as follows:
+        
+            cs.compileCsdText(csd_text);
+            while (cs.performBuffer() == 0)
+                pass
+            cs.cleanup()
+            cs.reset()
+        
+        NB: a temporary file is created, the csd_text is written to the
+        temporary file, and compileCsd is called with the name of the temporary
+        file, which is deleted after compilation. Behavior may vary by platform.
+        """
+        return libcsound.csoundCompileCsdText(self.cs, cstring(csd_text))
+
     def perform(self):
         """Sense input events and performs audio output.
         

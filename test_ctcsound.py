@@ -1,8 +1,9 @@
 import ctcsound
 import unittest
 
-class TestCtcsound(unittest.TestCase):
-    def setUp(self):
+class TestIntanstiation(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
         self.cs = ctcsound.Csound()
     
     def test_versions(self):
@@ -51,13 +52,13 @@ class TestCtcsound(unittest.TestCase):
         cs.setHostData(7)
         self.assertEqual(7, cs.hostData())
     
-    def test_setOption(self):
+    def rest_setOption(self):
         self.cs.setOption("--sample-rate=48000")
         self.cs.setOption("-k 4800")
         self.cs.start()
         self.assertEqual(48000, self.cs.sr())
     
-    def test_params(self):
+    def rest_params(self):
         p = ctcsound.CsoundParams()
         self.cs.setDebug(True)
         self.cs.params(p)
