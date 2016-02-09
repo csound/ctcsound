@@ -24,7 +24,7 @@ class TestIntanstiation(unittest.TestCase):
     
     def test_compileOrc_EvalCode(self):
         orc = """
-        sr = 44100
+        sr = 48000
         ksmps = 32
         nchnls = 2
         0dbfs = 1
@@ -52,13 +52,13 @@ class TestIntanstiation(unittest.TestCase):
         cs.setHostData(7)
         self.assertEqual(7, cs.hostData())
     
-    def rest_setOption(self):
+    def test_setOption(self):
         self.cs.setOption("--sample-rate=48000")
         self.cs.setOption("-k 4800")
         self.cs.start()
         self.assertEqual(48000, self.cs.sr())
     
-    def rest_params(self):
+    def test_params(self):
         p = ctcsound.CsoundParams()
         self.cs.setDebug(True)
         self.cs.params(p)

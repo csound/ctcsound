@@ -452,7 +452,7 @@ class Csound:
         Returns CSOUND_SUCCESS on success.
         NB: blank spaces are not allowed.
         """
-        libcsound.csoundSetOption(self.cs, cstring(option))
+        return libcsound.csoundSetOption(self.cs, cstring(option))
     
     def setParams(self, params):
         """Configure Csound with a given set of parameters.
