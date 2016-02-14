@@ -51,11 +51,18 @@ class CsoundParams(Structure):
 
 string64 = c_char * 64
 
-class csoundAudioDevice(Structure):
+class CsoundAudioDevice(Structure):
     _fields_ = [("device_name", string64),
                 ("device_id", string64),
                 ("rt_module", string64),
                 ("max_nchnls", c_int),
+                ("isOutput", c_int)]
+
+class CsoundMidiDevice(Structure):
+    _fields_ = [("device_name", string64),
+                ("interface_name", string64),
+                ("device_id", string64),
+                ("midi_module", string64),
                 ("isOutput", c_int)]
 
 class CsoundRtAudioParams(Structure):
@@ -154,6 +161,49 @@ libcsound.csoundSetHostImplementedAudioIO.argtypes = [c_void_p, c_int, c_int]
 libcsound.csoundGetAudioDevList.argtypes = [c_void_p, c_void_p, c_int]
 PLAYOPENFUNC = CFUNCTYPE(c_int, c_void_p, POINTER(CsoundRtAudioParams))
 libcsound.csoundSetPlayopenCallback.argtypes = [c_void_p, PLAYOPENFUNC]
+RTPLAYFUNC = CFUNCTYPE(None, c_void_p, POINTER(MYFLT), c_int)
+libcsound.csoundSetRtplayCallback.argtypes = [c_void_p, RTPLAYFUNC]
+RECORDOPENFUNC = CFUNCTYPE(c_int, c_void_p, POINTER(CsoundRtAudioParams))
+libcsound.csoundSetRecopenCallback.argtypes = [c_void_p, RECORDOPENFUNC]
+RTRECORDFUNC = CFUNCTYPE(c_int, c_void_p, POINTER(MYFLT), c_int)
+libcsound.csoundSetRtrecordCallback.argtypes = [c_void_p, RTRECORDFUNC]
+RTCLOSEFUNC = CFUNCTYPE(None, c_void_p)
+libcsound.csoundSetRtcloseCallback.argtypes = [c_void_p, RTCLOSEFUNC]
+AUDIODEVLISTFUNC = CFUNCTYPE(c_int, c_void_p, POINTER(CsoundAudioDevice), c_int)
+libcsound.csoundSetAudioDeviceListCallback.argtypes = [c_void_p, AUDIODEVLISTFUNC]
+
+libcsound.csoundSetMIDIModule.argtypes = [c_void_p, c_char_p]
+libcsound.csoundSetHostImplementedMIDIIO.argtypes = [c_void_p, c_int]
+libcsound.csoundGetMIDIDevList.argtypes = [c_void_p, c_void_p, c_int]
+MIDIINOPENFUNC = CFUNCTYPE(c_int, c_void_p, POINTER(c_void_p), c_char_p)
+libcsound.csoundSetExternalMidiInOpenCallback.argtypes = [c_void_p, MIDIINOPENFUNC]
+MIDIREADFUNC = CFUNCTYPE(c_int, c_void_p, c_void_p, c_char_p, c_int)
+libcsound.csoundSetExternalMidiReadCallback.argtypes = [c_void_p, MIDIREADFUNC]
+MIDIINCLOSEFUNC = CFUNCTYPE(c_int, c_void_p, c_void_p)
+libcsound.csoundSetExternalMidiInCloseCallback.argtypes = [c_void_p, MIDIINCLOSEFUNC]
+MIDIOUTOPENFUNC = CFUNCTYPE(c_int, c_void_p, POINTER(c_void_p), c_char_p)
+libcsound.csoundSetExternalMidiOutOpenCallback.argtypes = [c_void_p, MIDIOUTOPENFUNC]
+MIDIWRITEFUNC = CFUNCTYPE(c_int, c_void_p, c_void_p, c_char_p, c_int)
+libcsound.csoundSetExternalMidiWriteCallback.argtypes = [c_void_p, MIDIWRITEFUNC]
+MIDIOUTCLOSEFUNC = CFUNCTYPE(c_int, c_void_p, c_void_p)
+libcsound.csoundSetExternalMidiOutCloseCallback.argtypes = [c_void_p, MIDIOUTCLOSEFUNC]
+MIDIERRORFUNC = CFUNCTYPE(c_char_p, c_int)
+libcsound.csoundSetExternalMidiErrorStringCallback.argtypes = [c_void_p, MIDIERRORFUNC]
+MIDIDEVLISTFUNC = CFUNCTYPE(c_int, c_void_p, POINTER(CsoundMidiDevice), c_int)
+libcsound.csoundSetMIDIDeviceListCallback.argtypes = [c_void_p, MIDIDEVLISTFUNC]
+
+libcsound.csoundReadScore.argtypes = [c_void_p, c_char_p]
+libcsound.csoundGetScoreTime.restype = c_double
+libcsound.csoundGetScoreTime.argtypes = [c_void_p]
+libcsound.csoundIsScorePending.argtypes = [c_void_p]
+libcsound.csoundSetScorePending.argtypes = [c_void_p, c_int]
+libcsound.csoundGetScoreOffsetSeconds.restype = MYFLT
+libcsound.csoundGetScoreOffsetSeconds.argtypes = [c_void_p]
+libcsound.csoundSetScoreOffsetSeconds.argtypes = [c_void_p, MYFLT]
+libcsound.csoundRewindScore.argtypes = [c_void_p]
+CSCOREFUNC = CFUNCTYPE(None, c_void_p)
+libcsound.csoundSetCscoreCallback.argtypes = [c_void_p, CSCOREFUNC]
+
 
 def cstring(s):
     if sys.version_info[0] >= 3:
@@ -195,6 +245,20 @@ class Csound:
         # collected.
         self.fileOpenCb = None
         self.playOpenCb = None
+        self.rtPlayCb = None
+        self.recordOpenCb = None
+        self.rtRecordCb = None
+        self.rtCloseCb = None
+        self.audioDevListCb = None
+        self.midiInOpenCb = None
+        self.midiReadCb = None
+        self.midiInCloseCb = None
+        self.midiOutOpenCb = None
+        self.midiWriteCb = None
+        self.midiOutCloseCb = None
+        self.midiErrorCb = None
+        self.midiDevListCb = None
+        self.cscoreCb = None
     
     def __del__(self):
         """Destroys an instance of Csound."""
@@ -295,7 +359,7 @@ class Csound:
         argc, argv = csoundArgList(args)
         return libcsound.csoundCompile(self.cs, argc, argv)
     
-    def compileCsd(csd_filename):
+    def compileCsd(self, csd_filename):
         """Compile a Csound input file (.csd file).
         
         The input file includes command-line arguments, but does not
@@ -314,7 +378,7 @@ class Csound:
         """
         return libcsound.csoundCompileCsd(self.cs, cstring(csd_filename))
     
-    def compileCsdText(csd_text):
+    def compileCsdText(self, csd_text):
         """Compile a Csound input file contained in a string of text.
         
         The string of text includes command-line arguments, orchestra, score,
@@ -398,7 +462,7 @@ class Csound:
         """
         return libcsound.csoundReset(self.cs)
     
-    # Attibutes
+    # Attributes
     def sr(self):
         """Return the number of audio sample frames per second."""
         return libcsound.csoundGetSr(self.cs)
@@ -670,14 +734,14 @@ class Csound:
         set to the integer multiple of ksmps that is nearest to the value
         specified.
         """
-        libcsound.csoundSetHostImplementedAudioIO(self.cs, state, bufSize)
+        libcsound.csoundSetHostImplementedAudioIO(self.cs, c_int(state), c_int(bufSize))
 
     def audioDevList(self, isOutput):
         """Return a list of available input or output audio devices.
         
         Each item in the list is a dictionnary representing a device. The
         dictionnary keys are "device_name", "device_id", "rt_module" (value
-        type string), "max_nchnls" (value type int), and "output" (value 
+        type string), "max_nchnls" (value type int), and "isOutput" (value 
         type boolean). Must be called after an orchestra has been compiled
         to get meaningful information.
         """
@@ -691,7 +755,7 @@ class Csound:
             d["device_id"] = pstring(dev.device_id)
             d["rt_module"] = pstring(dev.rt_module)
             d["max_nchnls"] = dev.max_nchnls
-            d["output"] = (dev.isOutput == 1)
+            d["isOutput"] = (dev.isOutput == 1)
             lst.append(d)
         return lst
 
@@ -700,3 +764,184 @@ class Csound:
         self.playOpenCb = PLAYOPENFUNC(function)
         libcsound.csoundSetPlayopenCallback(self.cs, self.playOpenCb)
 
+    def setRtPlayCallback(self, function):
+        """Set a callback for performing real-time audio playback."""
+        self.rtPlayCb = RTPLAYFUNC(function)
+        libcsound.csoundSetRtplayCallback(self.cs, self.rtPlayCb)
+  
+    def setRecordOpenCallback(self, function):
+        """Set a callback for opening real-time audio recording."""
+        self.recordOpenCb = RECORDOPENFUNC(function)
+        libcsound.csoundSetRecopenCallback(self.cs, self.recordOpenCb)
+
+    def setRtRecordCallback(self, function):
+        """Set a callback for performing real-time audio recording."""
+        self.rtRecordCb = RTRECORDFUNC(function)
+        libcsound.csoundSetRtrecordCallback(self.cs, self.rtRecordCb)
+    
+    def setRtCloseCallback(self, function):
+        """Set a callback for closing real-time audio playback and recording."""
+        self.rtCloseCb = RTCLOSEFUNC(function)
+        libcsound.csoundSetRtcloseCallback(self.cs, self.rtCloseCb)
+    
+    def setAudioDevListCallback(self, function):
+        """Set a callback for obtaining a list of audio devices.
+        
+        This should be set by rtaudio modules and should not be set by hosts.
+        (See audioDevList()).
+        """
+        self.audioDevListCb = AUDIODEVLISTFUNC(function)
+        libcsound.csoundSetAudioDeviceListCallback(self.cs, self.audioDevListCb)
+    
+    #Realtime MIDI I/O
+    def setMIDIModule(self, module):
+        """Sets the current MIDI IO module."""
+        libcsound.csoundSetMIDIModule(self.cs, cstring(module))
+    
+    def setHostImplementedMIDIIO(self, state):
+        """Called with state 1 if the host is implementing via callbacks."""
+        libcsound.csoundSetHostImplementedMIDIIO(self.cs, c_int(state))
+    
+    def midiDevList(self, isOutput):
+        """Return a list of available input or output midi devices.
+        
+        Each item in the list is a dictionnary representing a device. The
+        dictionnary keys are "device_name", "interface_name", "device_id",
+        "midi_module" (value type string), "isOutput" (value type boolean).
+        Must be called after an orchestra has been compiled
+        to get meaningful information.
+        """
+        n = libcsound.csoundGetMIDIDevList(self.cs, None, c_int(isOutput))
+        devs = (csoundMidiDevice * n)()
+        libcsound.csoundGetMIDIDevList(self.cs, byref(devs), c_int(isOutput))
+        lst = []
+        for dev in devs:
+            d = {}
+            d["device_name"] = pstring(dev.device_name)
+            d["interface_name"] = pstring(dev.max_nchnlsinterface_name)
+            d["device_id"] = pstring(dev.device_id)
+            d["midi_module"] = pstring(dev.midi_module)
+            d["isOutput"] = (dev.isOutput == 1)
+            lst.append(d)
+        return lst
+
+    def setExternalMidiInOpenCallback(self, function):
+        """Set a callback for opening real-time MIDI input."""
+        self.midiInOpenCb = MIDIINOPENFUNC(function)
+        libcsound.csoundSetExternalMidiInOpenCallback(self.cs, self.midiInOpenCb)
+
+    def setExternalMidiReadCallback(self, function):
+        """Set a callback for reading from real time MIDI input."""
+        self.midiReadCb = MIDIREADFUNC(function)
+        libcsound.csoundSetExternalMidiReadCallback(self.cs, self.midiReadCb)
+    
+    def setExternalMidiInCloseCallback(self, function):
+        """Set a callback for closing real time MIDI input."""
+        self.midiInCloseCb = MIDIINCLOSEFUNC(function)
+        libcsound.csoundSetExternalMidiInCloseCallback(self.cs, self.midiInCloseCb)
+    
+    def setExternalMidiOutOpenCallback(self, function):
+        """Set a callback for opening real-time MIDI input."""
+        self.midiOutOpenCb = MIDIOUTOPENFUNC(function)
+        libcsound.csoundSetExternalMidiOutOpenCallback(self.cs, self.midiOutOpenCb)
+
+    def setExternalMidiWriteCallback(self, function):
+        """Set a callback for reading from real time MIDI input."""
+        self.midiWriteCb = MIDIWRITEFUNC(function)
+        libcsound.csoundSetExternalMidiWriteCallback(self.cs, self.midiWriteCb)
+    
+    def setExternalMidiOutCloseCallback(self, function):
+        """Set a callback for closing real time MIDI input."""
+        self.midiOutCloseCb = MIDIOUTCLOSEFUNC(function)
+        libcsound.csoundSetExternalMidiOutCloseCallback(self.cs, self.midiOutCloseCb)
+
+    def setExternalMidiErrorStringCallback(self, function):
+        """ Set a callback for converting MIDI error codes to strings."""
+        self.midiErrorCb = MIDIERRORFUNC(function)
+        libcsound.csoundSetExternalMidiErrorStringCallback(self.cs, self.midiErrorCb)
+    
+    def setMidiDevListCallback(self, function):
+        """Set a callback for obtaining a list of MIDI devices.
+        
+        This should be set by IO plugins and should not be set by hosts.
+        (See midiDevList()).
+        """
+        self.midiDevListCb = MIDIDEVLISTFUNC(function)
+        libcsound.csoundSetMIDIDeviceListCallback(self.cs, self.midiDevListCb)
+
+    #Score Handling
+    def readScore(self, sco):
+        """Read, preprocess, and load a score from an ASCII string.
+        
+        It can be called repeatedly, with the new score events
+        being added to the currently scheduled ones.
+        """
+        return libcsound.csoundReadScore(self.cs, cstring(sco))
+    
+    def scoreTime(self):
+        """Returns the current score time.
+        
+        The return value is the time in seconds since the beginning of
+        performance.
+        """
+        return libcsound.csoundGetScoreTime(self.cs)
+    
+    def isScorePending(self):
+        """Tell whether Csound score events are performed or not.
+        
+        Independently of real-time MIDI events (see setScorePending()).
+        """
+        return libcsound.csoundIsScorePending(self.cs)
+    
+    def setScorePending(self, pending):
+        """Sets whether Csound score events are performed or not.
+        
+        Real-time events will continue to be performed. Can be used by external
+        software, such as a VST host, to turn off performance of score events
+        (while continuing to perform real-time events), for example to mute
+        a Csound score while working on other tracks of a piece, or to play
+        the Csound instruments live.
+        """
+        libcsound.csoundSetScorePending(self.cs, c_int(pending))
+    
+    def scoreOffsetSeconds(self):
+        """Return the score time beginning midway through a Csound score.
+        
+        At this time score events will actually immediately be performed
+        (see setScoreOffsetSeconds()).
+        """
+        return libcsound.csoundGetScoreOffsetSeconds(self.cs)
+
+    def setScoreOffsetSeconds(self, time):
+        """Csound score events prior to the specified time are not performed.
+        
+        Performance begins immediately at the specified time (real-time events
+        will continue to be performed as they are received). Can be used by
+        external software, such as a VST host, to begin score performance
+        midway through a Csound score, for example to repeat a loop in a
+        sequencer, or to synchronize other events with the Csound score.
+        """
+        libcsound.csoundSetScoreOffsetSeconds(self.cs, MYFLT(time))
+    
+    def rewindScore(self):
+        """Rewinds a compiled Csound score.
+        
+        It is rewinded to the time specified with setScoreOffsetSeconds().
+        """
+        libcsound.csoundRewindScore(self.cs)
+    
+    def setCscoreCallback(self, function):
+        """Set an external callback for Cscore processing.
+        
+        Pass None to reset to the internal cscore() function (which does
+        nothing). This callback is retained after a reset() call.
+        """
+        self.cscoreCb = CSCOREFUNC(function)
+        libcsound.csoundSetCscoreCallback(self.cs, self.cscoreCb)
+    
+    #def scoreSort(self, inFile, outFile):
+    
+    #def scoreExtract(self, inFile, outFile, extractFile)
+    
+    #Messages and Text
+    

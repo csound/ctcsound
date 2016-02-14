@@ -4,11 +4,29 @@ import unittest
 class TestIntanstiation(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.cs = ctcsound.Csound()
+        self.initialData = {"string": "mydata", "number": 1956.2705, "boolean": True} 
+        self.cs = ctcsound.Csound(self.initialData)
+    
+    def test_hostData(self):
+        ret = self.cs.hostData()
+        self.assertEqual(self.initialData, ret)
+        data = [5, 4, 10.9]
+        self.cs.setHostData(data)
+        ret = self.cs.hostData()
+        self.assertEqual(data, ret)
+        self.cs.setHostData("dummy")
+        self.assertEqual("dummy", self.cs.hostData())
+        self.cs.setHostData(7)
+        self.assertEqual(7, self.cs.hostData())
     
     def test_versions(self):
         self.assertTrue(self.cs.version() >= 6050)
         self.assertTrue(self.cs.APIVersion() >= 300)
+
+class TestPerformance(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.cs = ctcsound.Csound()
     
     def test_tree(self):
         orc = """
@@ -24,7 +42,7 @@ class TestIntanstiation(unittest.TestCase):
     
     def test_compileOrc_EvalCode(self):
         orc = """
-        sr = 48000
+        sr = 44100
         ksmps = 32
         nchnls = 2
         0dbfs = 1
@@ -38,25 +56,18 @@ class TestIntanstiation(unittest.TestCase):
         ret = self.cs.evalCode(code)
         self.assertEqual(ret, 4)
     
-    def test_hostData(self):
-        data = {"string": "mydata", "number": 1956.2705, "boolean": True}
-        cs = ctcsound.Csound(data)
-        ret = cs.hostData()
-        self.assertEqual(data, ret)
-        data = [5, 4, 10.9]
-        cs.setHostData(data)
-        ret = cs.hostData()
-        self.assertEqual(data, ret)
-        cs.setHostData("dummy")
-        self.assertEqual("dummy", cs.hostData())
-        cs.setHostData(7)
-        self.assertEqual(7, cs.hostData())
+class TestAttributes(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.cs = ctcsound.Csound()
     
     def test_setOption(self):
-        self.cs.setOption("--sample-rate=48000")
-        self.cs.setOption("-k 4800")
-        self.cs.start()
-        self.assertEqual(48000, self.cs.sr())
+        self.cs.reset()
+        self.cs.setOption("--sample-rate=96000")
+        self.cs.setOption("-k 9600")
+        self.cs.compile_("csound", "analogSynth01.csd")
+        self.assertEqual(96000, self.cs.sr())
+        self.assertEqual(9600, self.cs.kr())
     
     def test_params(self):
         p = ctcsound.CsoundParams()
