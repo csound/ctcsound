@@ -204,6 +204,16 @@ libcsound.csoundRewindScore.argtypes = [c_void_p]
 CSCOREFUNC = CFUNCTYPE(None, c_void_p)
 libcsound.csoundSetCscoreCallback.argtypes = [c_void_p, CSCOREFUNC]
 
+libcsound.csoundMessage.argtypes = [c_void_p, c_char_p, c_char_p]
+libcsound.csoundMessageS.argtypes = [c_void_p, c_int, c_char_p, c_char_p]
+libcsound.csoundSetMessageLevel.argtypes = [c_void_p, c_int]
+libcsound.csoundCreateMessageBuffer.argtypes = [c_void_p, c_int]
+libcsound.csoundGetFirstMessage.restype = c_char_p
+libcsound.csoundGetFirstMessage.argtypes = [c_void_p]
+libcsound.csoundGetFirstMessageAttr.argtypes = [c_void_p]
+libcsound.csoundPopFirstMessage.argtypes = [c_void_p]
+libcsound.csoundGetMessageCnt.argtypes = [c_void_p]
+libcsound.csoundDestroyMessageBuffer.argtypes = [c_void_p]
 
 def cstring(s):
     if sys.version_info[0] >= 3:
@@ -223,14 +233,67 @@ def csoundArgList(lst):
         argv[i] = cast(pointer(create_string_buffer(v)), POINTER(c_char_p))
     return c_int(argc), cast(argv, POINTER(c_char_p))
 
+# message types (only one can be specified)
+CSOUNDMSG_DEFAULT = 0x0000       # standard message
+CSOUNDMSG_ERROR = 0x1000         # error message (initerror, perferror, etc.)
+CSOUNDMSG_ORCH = 0x2000          # orchestra opcodes (e.g. printks)
+CSOUNDMSG_REALTIME = 0x3000      # for progress display and heartbeat characters
+CSOUNDMSG_WARNING = 0x4000       # warning messages
+
+# format attributes (colors etc.), use the bitwise OR of any of these:
+CSOUNDMSG_FG_BLACK = 0x0100
+CSOUNDMSG_FG_RED = 0x0101
+CSOUNDMSG_FG_GREEN = 0x0102
+CSOUNDMSG_FG_YELLOW = 0x0103
+CSOUNDMSG_FG_BLUE = 0x0104
+CSOUNDMSG_FG_MAGENTA = 0x0105
+CSOUNDMSG_FG_CYAN = 0x0106
+CSOUNDMSG_FG_WHITE = 0x0107
+
+CSOUNDMSG_FG_BOLD = 0x0008
+CSOUNDMSG_FG_UNDERLINE = 0x0080
+
+CSOUNDMSG_BG_BLACK = 0x0200
+CSOUNDMSG_BG_RED = 0x0210
+CSOUNDMSG_BG_GREEN = 0x0220
+CSOUNDMSG_BG_ORANGE = 0x0230
+CSOUNDMSG_BG_BLUE = 0x0240
+CSOUNDMSG_BG_MAGENTA = 0x0250
+CSOUNDMSG_BG_CYAN = 0x0260
+CSOUNDMSG_BG_GREY = 0x0270
+
+CSOUNDMSG_TYPE_MASK = 0x7000
+CSOUNDMSG_FG_COLOR_MASK = 0x0107
+CSOUNDMSG_FG_ATTR_MASK = 0x0088
+CSOUNDMSG_BG_COLOR_MASK = 0x0270
+
+
+# ERROR DEFINITIONS
+CSOUND_SUCCESS = 0               # Completed successfully.
+CSOUND_ERROR = -1                # Unspecified failure.
+CSOUND_INITIALIZATION = -2       # Failed during initialization.
+CSOUND_PERFORMANCE = -3          # Failed during performance.
+CSOUND_MEMORY = -4               # Failed to allocate requested memory.
+CSOUND_SIGNAL = -5               # Termination requested by SIGINT or SIGTERM.
+
+# Constants used by the bus interface (csoundGetChannelPtr() etc.).
+CSOUND_CONTROL_CHANNEL = 1
+CSOUND_AUDIO_CHANNEL  = 2
+CSOUND_STRING_CHANNEL = 3
+CSOUND_PVS_CHANNEL = 4
+CSOUND_VAR_CHANNEL = 5
+
+CSOUND_CHANNEL_TYPE_MASK = 15
+
+CSOUND_INPUT_CHANNEL = 16
+CSOUND_OUTPUT_CHANNEL = 32
+
+CSOUND_CONTROL_CHANNEL_NO_HINTS  = 0
+CSOUND_CONTROL_CHANNEL_INT  = 1
+CSOUND_CONTROL_CHANNEL_LIN  = 2
+CSOUND_CONTROL_CHANNEL_EXP  = 3
+
 class Csound:
-    CSOUND_SUCCESS = 0           # Completed successfully.
-    CSOUND_ERROR = -1            # Unspecified failure.
-    CSOUND_INITIALIZATION = -2   # Failed during initialization.
-    CSOUND_PERFORMANCE = -3      # Failed during performance.
-    CSOUND_MEMORY = -4           # Failed to allocate requested memory.
-    CSOUND_SIGNAL = -5           # Termination requested by SIGINT or SIGTERM.
-    
     # Instantiation
     def __init__(self, hostData=None):
         """Creates an instance of Csound.
@@ -628,16 +691,16 @@ class Csound:
         
             n = 0
             while True:
-                name, type, err = cs.module(n)
-                if err == CSOUND_ERROR:
+                name, type_, err = cs.module(n)
+                if err == ctcsound.CSOUND_ERROR:
                     break
-                print("Module %d:%s (%s)\n" % (n, name, type)
-                n += 1
+                print("Module %d:%s (%s)\n" % (n, name, type_))
+                n = n + 1
         """
         name = pointer(c_char_p(cstring("dummy")))
         type_ = pointer(c_char_p(cstring("dummy")))
         err = libcsound.csoundGetModule(self.cs, number, name, type_)
-        if err == self.CSOUND_ERROR:
+        if err == CSOUND_ERROR:
             return None, None, err
         n = pstring(string_at(name.contents))
         t = pstring(string_at(type_.contents))
@@ -726,7 +789,7 @@ class Csound:
     def setHostImplementedAudioIO(self, state, bufSize):
         """Set user handling of sound I/O.
         
-        Calling this function with a non-zero 'state' value between creation of
+        Calling this function with a True 'state' value between creation of
         the Csound object and the start of performance will disable all default
         handling of sound I/O by the Csound library, allowing the host
         application to use the spin/spout/input/output buffers directly.
@@ -944,4 +1007,82 @@ class Csound:
     #def scoreExtract(self, inFile, outFile, extractFile)
     
     #Messages and Text
+    def message(self, fmt, *args):
+        """Display an informational message.
+        
+        This is a workaround because ctypes does not support variadic functions.
+        The arguments are formatted in a string, using the python way, either
+        old style or new style, and then this formatted string is passed to
+        the csound display message system.
+        """
+        if fmt[0] == '{':
+            s = fmt.format(*args)
+        else:
+            s = fmt % args
+        libcsound.csoundMessage(self.cs, cstring("%s"), cstring(s))
     
+    def messageS(self, attr, fmt, *args):
+        """Print message with special attributes.
+        
+        (See msg_attr for the list of available attributes). With attr=0,
+        messageS() is identical to message().
+        This is a workaround because ctypes does not support variadic functions.
+        The arguments are formatted in a string, using the python way, either
+        old style or new style, and then this formatted string is passed to
+        the csound display message system.
+        """
+        if fmt[0] == '{':
+            s = fmt.format(*args)
+        else:
+            s = fmt % args
+        libcsound.csoundMessageS(self.cs, c_int(attr), cstring("%s"), cstring(s))
+
+    #def setDefaultMessageCallback():
+    
+    #def setMessageCallback():
+    
+    def setMessageLevel(self, messageLevel):
+        """Set the Csound message level (from 0 to 231)."""
+        libcsound.csoundSetMessageLevel(self.cs, c_int(messageLevel))
+    
+    def createMessageBuffer(self, toStdOut):
+        """Create a buffer for storing messages printed by Csound.
+        
+        Should be called after creating a Csound instance and the buffer
+        can be freed by calling destroyMessageBuffer() before deleting the
+        Csound instance. You will generally want to call cleanup() to make
+        sure the last messages are flushed to the message buffer before
+        destroying Csound.
+        If 'toStdOut' is True, the messages are also printed to
+        stdout and stderr (depending on the type of the message),
+        in addition to being stored in the buffer.
+        Using the message buffer ties up the internal message callback, so
+        setMessageCallback should not be called after creating the
+        message buffer.
+        """
+        libcsound.csoundCreateMessageBuffer(self.cs,  c_int(toStdOut))
+    
+    def firstMessage(self):
+        """Return the first message from the buffer."""
+        s = libcsound.csoundGetFirstMessage(self.cs)
+        return pstring(s)
+    
+    def firstMessageAttr(self):
+        """Return the attribute parameter of the first message in the buffer."""
+        return libcsound.csoundGetFirstMessageAttr(self.cs)
+    
+    def popFirstMessage(self):
+        """Remove the first message from the buffer."""
+        libcsound.csoundPopFirstMessage(self.cs)
+    
+    def messageCnt(self):
+        """Return the number of pending messages in the buffer."""
+        return libcsound.csoundGetMessageCnt(self.cs)
+    
+    def destroyMessageBuffer(self):
+        """Release all memory used by the message buffer."""
+        libcsound.csoundDestroyMessageBuffer(self.cs)
+    
+    #Channels, Control and Events
+    
+

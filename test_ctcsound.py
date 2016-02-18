@@ -80,6 +80,20 @@ class TestAttributes(unittest.TestCase):
         p.debug_mode = 1
         self.cs.setParams(p)
         self.assertTrue(self.cs.debug())
-        
+
+class TestRealtimeAudio(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.cs = ctcsound.Csound()
+    
+    def test_modules(self):
+        n = 0
+        while True:
+            name, type_, err = self.cs.module(n)
+            if err == ctcsound.CSOUND_ERROR:
+                break
+            print("Module %d:%s (%s)\n" % (n, name, type_))
+            n += 1
+    
 if __name__ == '__main__':
     unittest.main()
