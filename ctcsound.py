@@ -215,6 +215,10 @@ libcsound.csoundPopFirstMessage.argtypes = [c_void_p]
 libcsound.csoundGetMessageCnt.argtypes = [c_void_p]
 libcsound.csoundDestroyMessageBuffer.argtypes = [c_void_p]
 
+libcsound.csoundGetChannelPtr.argtypes = [c_void_p, POINTER(POINTER(MYFLT)), c_char_p, c_int]
+
+libcsound.csoundGetChannelDatasize.argtypes = [c_void_p, c_char_p]
+
 def cstring(s):
     if sys.version_info[0] >= 3:
         return bytes(s, 'utf-8')
@@ -1084,5 +1088,74 @@ class Csound:
         libcsound.csoundDestroyMessageBuffer(self.cs)
     
     #Channels, Control and Events
+    def channelPtr(self, name, type_):
+        """Return a pointer to the specified channel of the bus as a []MYFLT.
     
+        The channel is created first if it does not exist yet.
+        'type_' must be the bitwise OR of exactly one of the following values,
+          CSOUND_CONTROL_CHANNEL
+            control data (one MYFLT value)
+          CSOUND_AUDIO_CHANNEL
+            audio data (csoundGetKsmps(csound) MYFLT values)
+          CSOUND_STRING_CHANNEL
+            string data (MYFLT values with enough space to store
+            csoundGetChannelDatasize() characters, including the
+            NULL character at the end of the string)
+        and at least one of these:
+          CSOUND_INPUT_CHANNEL
+          CSOUND_OUTPUT_CHANNEL
+        If the channel already exists, it must match the data type
+        (control, audio, or string), however, the input/output bits are
+        OR'd with the new value. Note that audio and string channels
+        can only be created after calling csoundCompile(), because the
+        storage size is not known until then.
 
+        Return value is zero on success, or a negative error code,
+          CSOUND_MEMORY  there is not enough memory for allocating the channel
+          CSOUND_ERROR   the specified name or type is invalid
+        or, if a channel with the same name but incompatible type
+        already exists, the type of the existing channel. In the case
+        of any non-zero return value, *p is set to NULL.
+        Note: to find out the type of a channel without actually
+        creating or changing it, set 'type' to zero, so that the return
+        value will be either the type of the channel, or CSOUND_ERROR
+        if it does not exist.
+        Operations on the pointer are not thread-safe by default. The host is
+        required to take care of threadsafety by retrieving the channel lock
+        with channelLock() and using spinLock() and spinUnLock() to protect
+        access to the pointer.
+        See Top/threadsafe.c in the Csound library sources for
+        examples.  Optionally, use the channel get/set functions
+        provided below, which are threadsafe by default.
+        """
+        length = 0
+        chanType = type_ & CSOUND_CHANNEL_TYPE_MASK
+        if chanType == CSOUND_CONTROL_CHANNEL:
+            length = 1
+        elif chanType == CSOUND_AUDIO_CHANNEL:
+            length = libcsound.csoundGetKsmps(self.cs)
+        elif chanType == CSOUND_STRING_CHANNEL:
+            length = libcsound.csoundGetChannelDatasize(self.cs, cstring(name))
+        else:
+            return None, '{} is not a valid channel type'.format(type_)
+        ptr = pointer(MYFLT(0.0))
+        err = ''
+        ret = libcsound.csoundGetChannelPtr(self.cs, byref(ptr), cstring(name), c_int(type_))
+        if ret == CSOUND_SUCCESS:
+            arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (length,), 'C_CONTIGUOUS')
+            p = cast(addressof(ptr), arrayType)
+            return np.ctypeslib.as_array(p), err
+        elif ret == CSOUND_MEMORY:
+            err = 'Not enough memory for allocating channel'
+        elif ret == CSOUND_ERROR:
+            err = 'The specified channel name or type is not valid'
+        elif ret == CSOUND_CONTROL_CHANNEL:
+            err = 'A control channel named {} already exists'.format(name)
+        elif ret == CSOUND_AUDIO_CHANNEL:
+            err = 'An audio channel named {} already exists'.format(name)
+        elif ret == CSOUND_STRING_CHANNEL:
+            err = 'A string channel named {} already exists'.format(name)
+        else:
+            err = 'Unknown error'
+        return None, err
+    
