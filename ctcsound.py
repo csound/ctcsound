@@ -74,6 +74,24 @@ class CsoundRtAudioParams(Structure):
                 ("sampleFormat", c_int), # sample format (AE_SHORT etc.)
                 ("sampleRate", c_float)] # sample rate in Hz
 
+# This structure holds the parameter hints for control channels
+class ControlChannelHints(Structure):
+    _fields_ = [("behav", c_int),
+                ("dflt", MYFLT),
+                ("min", MYFLT),
+                ("max", MYFLT),
+                ("x", c_int),
+                ("y", c_int),
+                ("width", c_int),
+                ("height", c_int),
+                # This member must be set explicitly to None if not used
+                ("attributes", c_char_p)]
+
+class ControlChannelInfo(Structure):
+    _fields_ = [("name", c_char_p),
+                ("type", c_int),
+                ("hints", ControlChannelHints)]
+
 libcsound.csoundCreate.restype = c_void_p
 libcsound.csoundCreate.argtypes = [py_object]
 
@@ -216,6 +234,7 @@ libcsound.csoundGetMessageCnt.argtypes = [c_void_p]
 libcsound.csoundDestroyMessageBuffer.argtypes = [c_void_p]
 
 libcsound.csoundGetChannelPtr.argtypes = [c_void_p, POINTER(POINTER(MYFLT)), c_char_p, c_int]
+libcsound.csoundListChannels.argtypes = [c_void_p, POINTER(POINTER(ControlChannelInfo))]
 
 libcsound.csoundGetChannelDatasize.argtypes = [c_void_p, c_char_p]
 
@@ -1089,8 +1108,13 @@ class Csound:
     
     #Channels, Control and Events
     def channelPtr(self, name, type_):
-        """Return a pointer to the specified channel of the bus as a []MYFLT.
-    
+        """Return a pointer to the specified channel and an error message.
+        
+        If the channel is a control or an audio channel, the pointer is
+        translated to an ndarray of MYFLT. If the channel is a string channel,
+        the pointer is casted to c_char_p. The error message is either an empty
+        string or a string describing the error that occured.
+        
         The channel is created first if it does not exist yet.
         'type_' must be the bitwise OR of exactly one of the following values,
           CSOUND_CONTROL_CHANNEL
@@ -1110,7 +1134,7 @@ class Csound:
         can only be created after calling csoundCompile(), because the
         storage size is not known until then.
 
-        Return value is zero on success, or a negative error code,
+        In the C API, return value is zero on success, or a negative error code,
           CSOUND_MEMORY  there is not enough memory for allocating the channel
           CSOUND_ERROR   the specified name or type is invalid
         or, if a channel with the same name but incompatible type
@@ -1120,6 +1144,7 @@ class Csound:
         creating or changing it, set 'type' to zero, so that the return
         value will be either the type of the channel, or CSOUND_ERROR
         if it does not exist.
+        
         Operations on the pointer are not thread-safe by default. The host is
         required to take care of threadsafety by retrieving the channel lock
         with channelLock() and using spinLock() and spinUnLock() to protect
@@ -1134,17 +1159,16 @@ class Csound:
             length = 1
         elif chanType == CSOUND_AUDIO_CHANNEL:
             length = libcsound.csoundGetKsmps(self.cs)
-        elif chanType == CSOUND_STRING_CHANNEL:
-            length = libcsound.csoundGetChannelDatasize(self.cs, cstring(name))
-        else:
-            return None, '{} is not a valid channel type'.format(type_)
         ptr = pointer(MYFLT(0.0))
         err = ''
         ret = libcsound.csoundGetChannelPtr(self.cs, byref(ptr), cstring(name), c_int(type_))
         if ret == CSOUND_SUCCESS:
-            arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (length,), 'C_CONTIGUOUS')
-            p = cast(addressof(ptr), arrayType)
-            return np.ctypeslib.as_array(p), err
+            if chanType == CSOUND_STRING_CHANNEL:
+                return cast(ptr, c_char_p), err
+            else:
+                arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (length,), 'C_CONTIGUOUS')
+                p = cast(addressof(ptr), arrayType)
+                return np.ctypeslib.as_array(p), err
         elif ret == CSOUND_MEMORY:
             err = 'Not enough memory for allocating channel'
         elif ret == CSOUND_ERROR:
@@ -1159,3 +1183,31 @@ class Csound:
             err = 'Unknown error'
         return None, err
     
+    def listChannels(self):
+        """Return a list of ControlChannelInfo objects for allocated channels.
+        
+        A ControlChannelInfo object contains the channel characteristics. The
+        second returned value an en error message if there is not enough memory
+        for allocating the list or an empty string if there is no error. In the
+        case of no channels or an error, the list is empty.
+
+        Notes: the caller is responsible for freeing the list returned by the
+        C API with deleteChannelList(). The name pointers may become invalid
+        after calling reset().
+        """
+        lst = []
+        err = ''
+        ptr = cast(pointer(MYFLT(0.0)), POINTER(ControlChannelInfo))
+        n = libcsound.csoundListChannels(self.cs, byref(ptr))
+        if n == CSOUND_MEMORY :
+            err = 'There is not enough memory for allocating the list'
+        if n > 0:
+            cast(ptr, POINTER(ControlChannelInfo * n))
+            for cInfo in ptr:
+                ci = {}
+                ci["name"] = pstring(cInfo.name)
+                ci["type"] = cInfo.type
+                ci["hints"] = cInfo.hints
+                lst.append(ci)
+        return lst, err
+
