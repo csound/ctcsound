@@ -832,7 +832,7 @@ class Csound:
         to get meaningful information.
         """
         n = libcsound.csoundGetAudioDevList(self.cs, None, c_int(isOutput))
-        devs = (csoundAudioDevice * n)()
+        devs = (CsoundAudioDevice * n)()
         libcsound.csoundGetAudioDevList(self.cs, byref(devs), c_int(isOutput))
         lst = []
         for dev in devs:
@@ -1202,8 +1202,9 @@ class Csound:
         if n == CSOUND_MEMORY :
             err = 'There is not enough memory for allocating the list'
         if n > 0:
-            cast(ptr, POINTER(ControlChannelInfo * n))
-            for cInfo in ptr:
+            ptr = cast(ptr, POINTER(ControlChannelInfo * n))
+            cInfos = cast(ptr, POINTER(ControlChannelInfo * n)).contents
+            for cInfo in cInfos:
                 ci = {}
                 ci["name"] = pstring(cInfo.name)
                 ci["type"] = cInfo.type
