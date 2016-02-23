@@ -235,6 +235,14 @@ libcsound.csoundDestroyMessageBuffer.argtypes = [c_void_p]
 
 libcsound.csoundGetChannelPtr.argtypes = [c_void_p, POINTER(POINTER(MYFLT)), c_char_p, c_int]
 libcsound.csoundListChannels.argtypes = [c_void_p, POINTER(POINTER(ControlChannelInfo))]
+libcsound.csoundDeleteChannelList.argtypes = [c_void_p, POINTER(ControlChannelInfo)]
+libcsound.csoundSetControlChannelHints.argtypes = [c_void_p, c_char_p, ControlChannelHints]
+libcsound.csoundGetControlChannelHints.argtypes = [c_void_p, c_char_p, POINTER(ControlChannelHints)]
+libcsound.csoundGetChannelLock.restype = POINTER(c_int)
+libcsound.csoundGetChannelLock.argtypes = [c_void_p, c_char_p]
+libcsound.csoundGetControlChannel.restype = MYFLT
+libcsound.csoundGetControlChannel.argtypes = [c_void_p, c_char_p, POINTER(c_int)]
+libcsound.csoundSetControlChannel.argtypes = [c_void_p, c_char_p, MYFLT]
 
 libcsound.csoundGetChannelDatasize.argtypes = [c_void_p, c_char_p]
 
@@ -1184,18 +1192,19 @@ class Csound:
         return None, err
     
     def listChannels(self):
-        """Return a list of ControlChannelInfo objects for allocated channels.
+        """Return a pointer and an error message.
         
-        A ControlChannelInfo object contains the channel characteristics. The
-        second returned value an en error message if there is not enough memory
-        for allocating the list or an empty string if there is no error. In the
-        case of no channels or an error, the list is empty.
+        The pointer points to a list of ControlChannelInfo objects for allocated
+        channels. A ControlChannelInfo object contains the channel
+        characteristics. The error message indicates if there is not enough
+        memory for allocating the list or it is an empty string if there is no
+        error. In the case of no channels or an error, the pointer is None.
 
         Notes: the caller is responsible for freeing the list returned by the
         C API with deleteChannelList(). The name pointers may become invalid
         after calling reset().
         """
-        lst = []
+        cInfos = None
         err = ''
         ptr = cast(pointer(MYFLT(0.0)), POINTER(ControlChannelInfo))
         n = libcsound.csoundListChannels(self.cs, byref(ptr))
@@ -1204,11 +1213,63 @@ class Csound:
         if n > 0:
             ptr = cast(ptr, POINTER(ControlChannelInfo * n))
             cInfos = cast(ptr, POINTER(ControlChannelInfo * n)).contents
-            for cInfo in cInfos:
-                ci = {}
-                ci["name"] = pstring(cInfo.name)
-                ci["type"] = cInfo.type
-                ci["hints"] = cInfo.hints
-                lst.append(ci)
-        return lst, err
+        return cInfos, err
 
+    def deleteChannelList(self, lst):
+        """Release a channel list previously returned by listChannels()."""
+        ptr = cast(lst, POINTER(ControlChannelInfo))
+        libcsound.csoundDeleteChannelList(self.cs, ptr)
+    
+    def setControlChannelHints(self, name, hints):
+        """Set parameters hints for a control channel.
+        
+        These hints have no internal function but can be used by front ends to
+        construct GUIs or to constrain values. See the ControlChannelHints
+        structure for details.
+        Returns zero on success, or a non-zero error code on failure:
+          CSOUND_ERROR:  the channel does not exist, is not a control channel,
+                         or the specified parameters are invalid
+          CSOUND_MEMORY: could not allocate memory
+        """
+        return libcsound.csoundSetControlChannelHints(self.cs, cstring(name), hints)
+
+    def controlChannelHints(self, name):
+        """Return special parameters (if any) of a control channel.
+        
+        Those parameters have been previously set with setControlChannelHints()
+        or the chnparams opcode.
+       
+        The return values are a ControlChannelHints structure and CSOUND_SUCCESS
+        if the channel exists and is a control channel, otherwise, None and an
+        error code are returned.
+        """
+        hints = ControlChannelHints()
+        ret = libcsound.csoundGetControlChannelHints(self.cs, cstring(name), byref(hints))
+        if ret != CSOUND_SUCCESS:
+            hints = None
+        return hints, ret
+    
+    def channelLock(self, name):
+        """Recover a pointer to a lock for the specified channel called 'name'.
+        
+        
+        The returned lock can be locked/unlocked  with the spinLock() and
+        spinUnLock() functions.
+        Return the address of the lock or NULL if the channel does not exist.
+        """
+        return libcsound.csoundGetChannelLock(self.cs, cstring(name))
+    
+    def controlChannel(self, name):
+        """Retrieve the value of control channel identified by name.
+        
+        A second value is returned, which the error (or success) code
+        finding or accessing the channel.
+        """
+        err = c_int(0)
+        ret = libcsound.csoundGetControlChannel(self.cs, cstring(name), byref(err))
+        return ret, err
+    
+    def setControlChannel(self, name, val):
+        """Set the value of control channel identified by name."""
+        libcsound.csoundSetControlChannel(self.cs, cstring(name), MYFLT(val))
+    
