@@ -74,6 +74,18 @@ class CsoundRtAudioParams(Structure):
                 ("sampleFormat", c_int), # sample format (AE_SHORT etc.)
                 ("sampleRate", c_float)] # sample rate in Hz
 
+# PVSDATEXT is a variation on PVSDAT used in the pvs bus interface
+class PvsdatExt(Structure):
+    _fields_ = [("N", c_int32),
+                ("sliding", c_int),      # Flag to indicate sliding case
+                ("NB", c_int32),
+                ("overlap", c_int32),
+                ("winsize", c_int32),
+                ("wintype", c_int),
+                ("format", c_int32),
+                ("framecount", c_uint32),
+                ("frame", POINTER(c_float))]
+
 # This structure holds the parameter hints for control channels
 class ControlChannelHints(Structure):
     _fields_ = [("behav", c_int),
@@ -243,11 +255,23 @@ libcsound.csoundGetChannelLock.argtypes = [c_void_p, c_char_p]
 libcsound.csoundGetControlChannel.restype = MYFLT
 libcsound.csoundGetControlChannel.argtypes = [c_void_p, c_char_p, POINTER(c_int)]
 libcsound.csoundSetControlChannel.argtypes = [c_void_p, c_char_p, MYFLT]
-
+libcsound.csoundGetAudioChannel.argtypes = [c_void_p, c_char_p, POINTER(c_int)]
+libcsound.csoundSetAudioChannel.argtypes = [c_void_p, c_char_p, POINTER(c_int)]
+libcsound.csoundGetStringChannel.argtypes = [c_void_p, c_char_p, c_char_p]
+libcsound.csoundSetStringChannel.argtypes = [c_void_p, c_char_p, c_char_p]
 libcsound.csoundGetChannelDatasize.argtypes = [c_void_p, c_char_p]
+CHANNELFUNC = CFUNCTYPE(None, c_void_p, c_char_p, c_void_p, c_void_p)
+libcsound.csoundSetInputChannelCallback.argtypes = [c_void_p, CHANNELFUNC]
+libcsound.csoundSetOutputChannelCallback.argtypes = [c_void_p, CHANNELFUNC]
+libcsound.csoundSetPvsChannel.argtypes = [c_void_p, POINTER(PvsdatExt), c_char_p]
+libcsound.csoundGetPvsChannel.argtypes = [c_void_p, POINTER(PvsdatExt), c_char_p]
+libcsound.csoundScoreEvent.argtypes = [c_void_p, c_char, POINTER(MYFLT), c_long]
+libcsound.csoundScoreEventAbsolute.argtypes = [c_void_p, c_char, POINTER(MYFLT), c_long, c_double]
+libcsound.csoundInputMessage.argtypes = [c_void_p, c_char_p]
+libcsound.csoundKillInstance.argtypes = [c_void_p, MYFLT, c_char_p, c_int, c_int]
 
 def cstring(s):
-    if sys.version_info[0] >= 3:
+    if sys.version_info[0] >= 3 and s != None:
         return bytes(s, 'utf-8')
     return s
 
@@ -353,6 +377,8 @@ class Csound:
         self.midiErrorCb = None
         self.midiDevListCb = None
         self.cscoreCb = None
+        self.inputChannelCb = None
+        self.outputChannelCb = None
     
     def __del__(self):
         """Destroys an instance of Csound."""
@@ -1272,4 +1298,112 @@ class Csound:
     def setControlChannel(self, name, val):
         """Set the value of control channel identified by name."""
         libcsound.csoundSetControlChannel(self.cs, cstring(name), MYFLT(val))
+    
+    def audioChannel(self, name, samples):
+        """Copy the audio channel identified by name into ndarray samples.
+        
+        samples should contain enough memory for ksmps MYFLTs.
+        """
+        ptr = samples.ctypes.data_as(POINTER(MYFLT))
+        libcsound.csoundGetAudioChannel(self.cs, cstring(name), ptr)
+    
+    def setAudioChannel(self, name, samples):
+        """Set the audio channel 'name' with data from ndarray 'samples'.
+        
+        'samples' should contain at least ksmps MYFLTs.
+        """
+        ptr = samples.ctypes.data_as(POINTER(MYFLT))
+        libcsound.csoundSetAudioChannel(self.cs, cstring(name), ptr)
+    
+    def stringChannel(self, name, string):
+        """Copy the string channel identified by name into string.
+        
+        string should contain enough memory for the string
+        (see channelDatasize() below).
+        """
+        libcsound.csoundGetStringChannel(self.cs, cstring(name), cstring(string))
+
+    def setStringChannel(self, name, string):
+        """Set the string channel identified by name with string."""
+        libcsound.csoundSetStringChannel(self.cs, cstring(name), cstring(string))
+    
+    def channelDatasize(self, name):
+        """Return the size of data stored in a channel.
+        
+        For string channels this might change if the channel space gets
+        reallocated. Since string variables use dynamic memory allocation in
+        Csound6, this function can be called to get the space required for
+        stringChannel().
+        """
+        return libcsound.csoundGetChannelDatasize(self.cs, cstring(name))
+
+    def setInputChannelCallback(self, function):
+        """Set the function to call whenever the invalue opcode is used."""
+        self.inputChannelCb = CHANNELFUNC(function)
+        libcsound.csoundSetInputChannelCallback(self.cs, self.inputChannelCb)
+    
+    def setOutputChannelCallback(self, function):
+        """Set the function to call whenever the outvalue opcode is used."""
+        self.outputChannelCb = CHANNELFUNC(function)
+        libcsound.csoundSetOutputChannelCallback(self.cs, self.outputChannelCb)
+
+    def setPvsChannel(self, fin, name):
+        """Send a PvsdatExt fin to the pvsin opcode (f-rate) for channel 'name'.
+        
+        Return zero on success, CSOUND_ERROR if the index is invalid or
+        fsig framesizes are incompatible.
+        CSOUND_MEMORY if there is not enough memory to extend the bus.
+        """
+        return libcsound.csoundSetPvsChannel(self.cs, byref(fin), cstring(name))
+    
+    def pvsChannel(self, fout, name):
+        """Receive a PvsdatExt fout from the pvsout opcode (f-rate) at channel 'name'.
+        
+        Return zero on success, CSOUND_ERROR if the index is invalid or
+        if fsig framesizes are incompatible.
+        CSOUND_MEMORY if there is not enough memory to extend the bus.
+        """
+        return libcsound.csoundGetPvsChannel(self.cs, byref(fout), cstring(name))
+    
+    def scoreEvent(self, type_, pFields):
+        """Send a new score event.
+        
+        'type_' is the score event type ('a', 'i', 'q', 'f', or 'e').
+        'pFields' is an ndarray of MYFLTs with all the pfields for this event,
+        starting with the p1 value specified in pFields[0].
+        """
+        ptr = pFields.ctypes.data_as(POINTER(MYFLT))
+        numFields = c_long(pFields.size)
+        return libcsound.csoundScoreEvent(self.cs, c_char(type_), ptr, numFields)
+    
+    def scoreEventAbsolute(self, type_, pFields, timeOffset):
+        """Like scoreEvent(), this function inserts a score event.
+        
+        The event is inserted at absolute time with respect to the start of
+        performance, or from an offset set with timeOffset.
+        """
+        ptr = pFields.ctypes.data_as(POINTER(MYFLT))
+        numFields = c_long(pFields.size)
+        return libcsound.csoundScoreEventAbsolute(self.cs, c_char(type_), ptr, numFields, c_double(timeOffset))
+    
+    def inputMessage(self, message):
+        """Input a NULL-terminated string (as if from a console).
+        
+        Used for line events.
+        """
+        libcsound.csoundInputMessage(self.cs, cstring(message))
+    
+    def killInstance(self, instr, instrName, mode, allowRelease):
+        """Kills off one or more running instances of an instrument.
+        
+        The instances are identified by instr (number) or instrName (name).
+        If instrName is None, the instrument number is used.
+        Mode is a sum of the following values:
+        0, 1, 2: kill all instances (0), oldest only (1), or newest (2)
+        4: only turnoff notes with exactly matching (fractional) instr number
+        8: only turnoff notes with indefinite duration (p3 < 0 or MIDI).
+        If allowRelease is True, the killed instances are allowed to release.
+        """
+        return libcsound.csoundKillInstance(self.cs, MYFLT(instr), cstring(instrName), c_int(mode), c_int(allowRelease))
+    
     
