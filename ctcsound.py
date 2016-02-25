@@ -74,6 +74,12 @@ class CsoundRtAudioParams(Structure):
                 ("sampleFormat", c_int), # sample format (AE_SHORT etc.)
                 ("sampleRate", c_float)] # sample rate in Hz
 
+class OpcodeListEntry(Structure):
+    _fields_ = [("opname", c_char_p),
+                ("outypes", c_char_p),
+                ("intypes", c_char_p),
+                ("flags", c_int)]
+
 # PVSDATEXT is a variation on PVSDAT used in the pvs bus interface
 class PvsdatExt(Structure):
     _fields_ = [("N", c_int32),
@@ -103,6 +109,36 @@ class ControlChannelInfo(Structure):
     _fields_ = [("name", c_char_p),
                 ("type", c_int),
                 ("hints", ControlChannelHints)]
+
+CAPSIZE  = 60
+
+class Windat(Structure):
+    _fields_ = [("windid", POINTER(c_uint)),    # set by makeGraph()
+                ("fdata", POINTER(MYFLT)),      # data passed to drawGraph()
+                ("npts", c_int32),              # size of above array
+                ("caption", c_char * CAPSIZE),  # caption string for graph
+                ("waitflg", c_int16 ),          # set =1 to wait for ms after Draw
+                ("polarity", c_int16),          # controls positioning of X axis
+                ("max", MYFLT),                 # workspace .. extrema this frame
+                ("min", MYFLT),
+                ("absmax", MYFLT),              # workspace .. largest of above
+                ("oabsmax", MYFLT),             # Y axis scaling factor
+                ("danflag", c_int),             # set to 1 for extra Yaxis mid span
+                ("absflag", c_int)]             # set to 1 to skip abs check
+
+# Symbols for Windat.polarity field
+NOPOL = 0
+NEGPOL = 1
+POSPOL = 2
+BIPOL = 3
+
+class NamedGen(Structure):
+    pass
+
+NamedGen._fields_ = [
+    ("name", c_char_p),
+    ("genum", c_int),
+    ("next", POINTER(NamedGen))]
 
 libcsound.csoundCreate.restype = c_void_p
 libcsound.csoundCreate.argtypes = [py_object]
@@ -284,6 +320,24 @@ libcsound.csoundTableCopyOut.argtypes = [c_void_p, c_int, POINTER(MYFLT)]
 libcsound.csoundTableCopyIn.argtypes = [c_void_p, c_int, POINTER(MYFLT)]
 libcsound.csoundGetTable.argtypes = [c_void_p, POINTER(POINTER(MYFLT)), c_int]
 libcsound.csoundGetTableArgs.argtypes = [c_void_p, POINTER(POINTER(MYFLT)), c_int]
+
+libcsound.csoundSetIsGraphable.argtypes = [c_void_p, c_int]
+MAKEGRAPHFUNC = CFUNCTYPE(None, c_void_p, POINTER(Windat), c_char_p)
+libcsound.csoundSetMakeGraphCallback.argtypes = [c_void_p, MAKEGRAPHFUNC]
+DRAWGRAPHFUNC = CFUNCTYPE(None, c_void_p, POINTER(Windat))
+libcsound.csoundSetDrawGraphCallback.argtypes = [c_void_p, DRAWGRAPHFUNC]
+KILLGRAPHFUNC = CFUNCTYPE(None, c_void_p, POINTER(Windat))
+libcsound.csoundSetKillGraphCallback.argtypes = [c_void_p, KILLGRAPHFUNC]
+EXITGRAPHFUNC = CFUNCTYPE(c_int, c_void_p)
+libcsound.csoundSetExitGraphCallback.argtypes = [c_void_p, EXITGRAPHFUNC]
+
+libcsound.csoundGetNamedGens.restype = c_void_p
+libcsound.csoundGetNamedGens.argtypes = [c_void_p]
+libcsound.csoundNewOpcodeList.argtypes = [c_void_p, POINTER(POINTER(OpcodeListEntry))]
+libcsound.csoundDisposeOpcodeList.argtypes = [c_void_p, POINTER(OpcodeListEntry)]
+OPCODEFUNC = CFUNCTYPE(c_int, c_void_p, c_void_p)
+libcsound.csoundAppendOpcode.argtypes = [c_void_p, c_char_p, c_int, c_int, c_int, \
+                                         c_char_p, c_char_p, OPCODEFUNC, OPCODEFUNC, OPCODEFUNC]
 
 def cstring(s):
     if sys.version_info[0] >= 3 and s != None:
@@ -1216,7 +1270,6 @@ class Csound:
         if n == CSOUND_MEMORY :
             err = 'There is not enough memory for allocating the list'
         if n > 0:
-            ptr = cast(ptr, POINTER(ControlChannelInfo * n))
             cInfos = cast(ptr, POINTER(ControlChannelInfo * n)).contents
         return cInfos, err
 
@@ -1525,5 +1578,73 @@ class Csound:
         return np.ctypeslib.as_array(p)
     
     #Function table display
+    def setIsGraphable(self, isGraphable):
+        """Tell Csound whether external graphic table display is supported.
+        
+        Return the previously set value (initially False).
+        """
+        ret = libcsound.csoundSetIsGraphable(self.cs, c_int(isGraphable))
+        return (ret != 0)
+    
+    def setMakeGraphCallback(self, function):
+        """Called by external software to set Csound's MakeGraph function."""
+        libcsound.csoundSetMakeGraphCallback(self.cs, MAKEGRAPHFUNC(function))
+        
+    def setDrawGraphCallback(self, function):
+        """Called by external software to set Csound's DrawGraph function."""
+        libcsound.csoundSetDrawGraphCallback(self.cs, DRAWGRAPHFUNC(function))
+    
+    def setKillGraphCallback(self, function):
+        """Called by external software to set Csound's KillGraph function."""
+        libcsound.csoundSetKillGraphCallback(self.cs, KILLGRAPHFUNC(function))
+    
+    def setExitGraphCallback(self, function):
+        """Called by external software to set Csound's ExitGraph function."""
+        libcsound.csoundSetExitGraphCallback(self.cs, EXITGRAPHFUNC(function))
+    
+    #Opcodes
+    def namedGens(self):
+        """Find the list of named gens."""
+        lst = []
+        ptr = libcsound.csoundGetNamedGens(self.cs)
+        ptr = cast(ptr, POINTER(NamedGen))
+        while (ptr):
+            ng = ptr.contents
+            lst.append((pstring(ng.name), int(ng.genum)))
+            ptr = ng.next
+        return lst
+    
+    def newOpcodeList(self):
+        """Get an alphabetically sorted list of all opcodes.
+        
+        Should be called after externals are loaded by compile_().
+        Return a pointer to the list of OpcodeListEntry structures and the
+        number of opcodes, or a negative error code on  failure.
+        Make sure to call disposeOpcodeList() when done with the list.
+        """
+        opcodes = None
+        ptr = cast(pointer(MYFLT(0.0)), POINTER(OpcodeListEntry))
+        n = libcsound.csoundNewOpcodeList(self.cs, byref(ptr))
+        if n > 0:
+            opcodes = cast(ptr, POINTER(OpcodeListEntry * n)).contents
+        return opcodes, n
+    
+    def disposeOpcodeList(self, lst):
+        """Release an opcode list."""
+        ptr = cast(lst, POINTER(OpcodeListEntry))
+        libcsound.csoundDisposeOpcodeList(self.cs, ptr)
 
-
+    def appendOpcode(self, opname, dsblksiz, flags, thread, outypes, intypes, iopfunc, kopfunc, aopfunc):
+        """Appends an opcode implemented by external software.
+        
+        This opcode is added to Csound's internal opcode list.
+        The opcode list is extended by one slot, and the parameters are copied
+        into the new slot.
+        Return zero on success.
+        """
+        return libcsound.csoundAppendOpcode(self.cs, cstring(opname), dsblksiz, flags, thread,\
+                                            cstring(outypes), cstring(intypes),\
+                                            OPCODEFUNC(iopfunc),\
+                                            OPCODEFUNC(kopfunc),
+                                            OPCODEFUNC(aopfunc))
+    
