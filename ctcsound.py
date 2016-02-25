@@ -269,6 +269,21 @@ libcsound.csoundScoreEvent.argtypes = [c_void_p, c_char, POINTER(MYFLT), c_long]
 libcsound.csoundScoreEventAbsolute.argtypes = [c_void_p, c_char, POINTER(MYFLT), c_long, c_double]
 libcsound.csoundInputMessage.argtypes = [c_void_p, c_char_p]
 libcsound.csoundKillInstance.argtypes = [c_void_p, MYFLT, c_char_p, c_int, c_int]
+SENSEFUNC = CFUNCTYPE(None, c_void_p, py_object)
+libcsound.csoundRegisterSenseEventCallback.argtypes = [c_void_p, SENSEFUNC, py_object]
+libcsound.csoundKeyPress.argtypes = [c_void_p, c_char]
+KEYBOARDFUNC = CFUNCTYPE(c_int, py_object, c_void_p, c_uint)
+libcsound.csoundRegisterKeyboardCallback.argtypes = [c_void_p, KEYBOARDFUNC, py_object, c_uint]
+libcsound.csoundRemoveKeyboardCallback.argtypes = [c_void_p, KEYBOARDFUNC]
+
+libcsound.csoundTableLength.argtypes = [c_void_p, c_int]
+libcsound.csoundTableGet.restype = MYFLT
+libcsound.csoundTableGet.argtypes = [c_void_p, c_int, c_int]
+libcsound.csoundTableSet.argtypes = [c_void_p, c_int, c_int, MYFLT]
+libcsound.csoundTableCopyOut.argtypes = [c_void_p, c_int, POINTER(MYFLT)]
+libcsound.csoundTableCopyIn.argtypes = [c_void_p, c_int, POINTER(MYFLT)]
+libcsound.csoundGetTable.argtypes = [c_void_p, POINTER(POINTER(MYFLT)), c_int]
+libcsound.csoundGetTableArgs.argtypes = [c_void_p, POINTER(POINTER(MYFLT)), c_int]
 
 def cstring(s):
     if sys.version_info[0] >= 3 and s != None:
@@ -276,7 +291,7 @@ def cstring(s):
     return s
 
 def pstring(s):
-    if sys.version_info[0] >= 3:
+    if sys.version_info[0] >= 3and s != None:
         return str(s, 'utf-8')
     return s
 
@@ -359,26 +374,6 @@ class Csound:
         that is passed to callback routines.
         """
         self.cs = libcsound.csoundCreate(py_object(hostData))
-        # We keep a reference of callbacks so that they won't be garbage
-        # collected.
-        self.fileOpenCb = None
-        self.playOpenCb = None
-        self.rtPlayCb = None
-        self.recordOpenCb = None
-        self.rtRecordCb = None
-        self.rtCloseCb = None
-        self.audioDevListCb = None
-        self.midiInOpenCb = None
-        self.midiReadCb = None
-        self.midiInCloseCb = None
-        self.midiOutOpenCb = None
-        self.midiWriteCb = None
-        self.midiOutCloseCb = None
-        self.midiErrorCb = None
-        self.midiDevListCb = None
-        self.cscoreCb = None
-        self.inputChannelCb = None
-        self.outputChannelCb = None
     
     def __del__(self):
         """Destroys an instance of Csound."""
@@ -731,8 +726,7 @@ class Csound:
         Pass NULL to disable the callback.
         This callback is retained after a csoundReset() call.
         """
-        self.fileOpenCb = FILEOPENFUNC(function)
-        libcsound.csoundSetFileOpenCallback(self.cs, self.fileOpenCb)
+        libcsound.csoundSetFileOpenCallback(self.cs, FILEOPENFUNC(function))
 
     # Realtime Audio I/O
     def setRTAudioModule(self, module):
@@ -854,7 +848,7 @@ class Csound:
         set to the integer multiple of ksmps that is nearest to the value
         specified.
         """
-        libcsound.csoundSetHostImplementedAudioIO(self.cs, c_int(state), c_int(bufSize))
+        libcsound.csoundSetHostImplementedAudioIO(self.cs, c_int(state), bufSize)
 
     def audioDevList(self, isOutput):
         """Return a list of available input or output audio devices.
@@ -881,28 +875,23 @@ class Csound:
 
     def setPlayOpenCallback(self, function):
         """Set a callback for opening real-time audio playback."""
-        self.playOpenCb = PLAYOPENFUNC(function)
-        libcsound.csoundSetPlayopenCallback(self.cs, self.playOpenCb)
+        libcsound.csoundSetPlayopenCallback(self.cs, PLAYOPENFUNC(function))
 
     def setRtPlayCallback(self, function):
         """Set a callback for performing real-time audio playback."""
-        self.rtPlayCb = RTPLAYFUNC(function)
-        libcsound.csoundSetRtplayCallback(self.cs, self.rtPlayCb)
+        libcsound.csoundSetRtplayCallback(self.cs, RTPLAYFUNC(function))
   
     def setRecordOpenCallback(self, function):
         """Set a callback for opening real-time audio recording."""
-        self.recordOpenCb = RECORDOPENFUNC(function)
-        libcsound.csoundSetRecopenCallback(self.cs, self.recordOpenCb)
+        libcsound.csoundSetRecopenCallback(self.cs, RECORDOPENFUNC(function))
 
     def setRtRecordCallback(self, function):
         """Set a callback for performing real-time audio recording."""
-        self.rtRecordCb = RTRECORDFUNC(function)
-        libcsound.csoundSetRtrecordCallback(self.cs, self.rtRecordCb)
+        libcsound.csoundSetRtrecordCallback(self.cs, RTRECORDFUNC(function))
     
     def setRtCloseCallback(self, function):
         """Set a callback for closing real-time audio playback and recording."""
-        self.rtCloseCb = RTCLOSEFUNC(function)
-        libcsound.csoundSetRtcloseCallback(self.cs, self.rtCloseCb)
+        libcsound.csoundSetRtcloseCallback(self.cs, RTCLOSEFUNC(function))
     
     def setAudioDevListCallback(self, function):
         """Set a callback for obtaining a list of audio devices.
@@ -910,8 +899,7 @@ class Csound:
         This should be set by rtaudio modules and should not be set by hosts.
         (See audioDevList()).
         """
-        self.audioDevListCb = AUDIODEVLISTFUNC(function)
-        libcsound.csoundSetAudioDeviceListCallback(self.cs, self.audioDevListCb)
+        libcsound.csoundSetAudioDeviceListCallback(self.cs, AUDIODEVLISTFUNC(function))
     
     #Realtime MIDI I/O
     def setMIDIModule(self, module):
@@ -919,7 +907,7 @@ class Csound:
         libcsound.csoundSetMIDIModule(self.cs, cstring(module))
     
     def setHostImplementedMIDIIO(self, state):
-        """Called with state 1 if the host is implementing via callbacks."""
+        """Called with state True if the host is implementing via callbacks."""
         libcsound.csoundSetHostImplementedMIDIIO(self.cs, c_int(state))
     
     def midiDevList(self, isOutput):
@@ -947,38 +935,31 @@ class Csound:
 
     def setExternalMidiInOpenCallback(self, function):
         """Set a callback for opening real-time MIDI input."""
-        self.midiInOpenCb = MIDIINOPENFUNC(function)
-        libcsound.csoundSetExternalMidiInOpenCallback(self.cs, self.midiInOpenCb)
+        libcsound.csoundSetExternalMidiInOpenCallback(self.cs, MIDIINOPENFUNC(function))
 
     def setExternalMidiReadCallback(self, function):
         """Set a callback for reading from real time MIDI input."""
-        self.midiReadCb = MIDIREADFUNC(function)
-        libcsound.csoundSetExternalMidiReadCallback(self.cs, self.midiReadCb)
+        libcsound.csoundSetExternalMidiReadCallback(self.cs, MIDIREADFUNC(function))
     
     def setExternalMidiInCloseCallback(self, function):
         """Set a callback for closing real time MIDI input."""
-        self.midiInCloseCb = MIDIINCLOSEFUNC(function)
-        libcsound.csoundSetExternalMidiInCloseCallback(self.cs, self.midiInCloseCb)
+        libcsound.csoundSetExternalMidiInCloseCallback(self.cs, MIDIINCLOSEFUNC(function))
     
     def setExternalMidiOutOpenCallback(self, function):
         """Set a callback for opening real-time MIDI input."""
-        self.midiOutOpenCb = MIDIOUTOPENFUNC(function)
-        libcsound.csoundSetExternalMidiOutOpenCallback(self.cs, self.midiOutOpenCb)
+        libcsound.csoundSetExternalMidiOutOpenCallback(self.cs, MIDIOUTOPENFUNC(function))
 
     def setExternalMidiWriteCallback(self, function):
         """Set a callback for reading from real time MIDI input."""
-        self.midiWriteCb = MIDIWRITEFUNC(function)
-        libcsound.csoundSetExternalMidiWriteCallback(self.cs, self.midiWriteCb)
+        libcsound.csoundSetExternalMidiWriteCallback(self.cs, MIDIWRITEFUNC(function))
     
     def setExternalMidiOutCloseCallback(self, function):
         """Set a callback for closing real time MIDI input."""
-        self.midiOutCloseCb = MIDIOUTCLOSEFUNC(function)
-        libcsound.csoundSetExternalMidiOutCloseCallback(self.cs, self.midiOutCloseCb)
+        libcsound.csoundSetExternalMidiOutCloseCallback(self.cs, MIDIOUTCLOSEFUNC(function))
 
     def setExternalMidiErrorStringCallback(self, function):
         """ Set a callback for converting MIDI error codes to strings."""
-        self.midiErrorCb = MIDIERRORFUNC(function)
-        libcsound.csoundSetExternalMidiErrorStringCallback(self.cs, self.midiErrorCb)
+        libcsound.csoundSetExternalMidiErrorStringCallback(self.cs, MIDIERRORFUNC(function))
     
     def setMidiDevListCallback(self, function):
         """Set a callback for obtaining a list of MIDI devices.
@@ -986,8 +967,7 @@ class Csound:
         This should be set by IO plugins and should not be set by hosts.
         (See midiDevList()).
         """
-        self.midiDevListCb = MIDIDEVLISTFUNC(function)
-        libcsound.csoundSetMIDIDeviceListCallback(self.cs, self.midiDevListCb)
+        libcsound.csoundSetMIDIDeviceListCallback(self.cs, MIDIDEVLISTFUNC(function))
 
     #Score Handling
     def readScore(self, sco):
@@ -1014,7 +994,7 @@ class Csound:
         return libcsound.csoundIsScorePending(self.cs)
     
     def setScorePending(self, pending):
-        """Sets whether Csound score events are performed or not.
+        """Set whether Csound score events are performed or not.
         
         Real-time events will continue to be performed. Can be used by external
         software, such as a VST host, to turn off performance of score events
@@ -1056,8 +1036,7 @@ class Csound:
         Pass None to reset to the internal cscore() function (which does
         nothing). This callback is retained after a reset() call.
         """
-        self.cscoreCb = CSCOREFUNC(function)
-        libcsound.csoundSetCscoreCallback(self.cs, self.cscoreCb)
+        libcsound.csoundSetCscoreCallback(self.cs, CSCOREFUNC(function))
     
     #def scoreSort(self, inFile, outFile):
     
@@ -1092,7 +1071,7 @@ class Csound:
             s = fmt.format(*args)
         else:
             s = fmt % args
-        libcsound.csoundMessageS(self.cs, c_int(attr), cstring("%s"), cstring(s))
+        libcsound.csoundMessageS(self.cs, attr, cstring("%s"), cstring(s))
 
     #def setDefaultMessageCallback():
     
@@ -1100,7 +1079,7 @@ class Csound:
     
     def setMessageLevel(self, messageLevel):
         """Set the Csound message level (from 0 to 231)."""
-        libcsound.csoundSetMessageLevel(self.cs, c_int(messageLevel))
+        libcsound.csoundSetMessageLevel(self.cs, messageLevel)
     
     def createMessageBuffer(self, toStdOut):
         """Create a buffer for storing messages printed by Csound.
@@ -1195,7 +1174,7 @@ class Csound:
             length = libcsound.csoundGetKsmps(self.cs)
         ptr = pointer(MYFLT(0.0))
         err = ''
-        ret = libcsound.csoundGetChannelPtr(self.cs, byref(ptr), cstring(name), c_int(type_))
+        ret = libcsound.csoundGetChannelPtr(self.cs, byref(ptr), cstring(name), type_)
         if ret == CSOUND_SUCCESS:
             if chanType == CSOUND_STRING_CHANNEL:
                 return cast(ptr, c_char_p), err
@@ -1339,13 +1318,11 @@ class Csound:
 
     def setInputChannelCallback(self, function):
         """Set the function to call whenever the invalue opcode is used."""
-        self.inputChannelCb = CHANNELFUNC(function)
-        libcsound.csoundSetInputChannelCallback(self.cs, self.inputChannelCb)
+        libcsound.csoundSetInputChannelCallback(self.cs, CHANNELFUNC(function))
     
     def setOutputChannelCallback(self, function):
         """Set the function to call whenever the outvalue opcode is used."""
-        self.outputChannelCb = CHANNELFUNC(function)
-        libcsound.csoundSetOutputChannelCallback(self.cs, self.outputChannelCb)
+        libcsound.csoundSetOutputChannelCallback(self.cs, CHANNELFUNC(function))
 
     def setPvsChannel(self, fin, name):
         """Send a PvsdatExt fin to the pvsin opcode (f-rate) for channel 'name'.
@@ -1404,6 +1381,149 @@ class Csound:
         8: only turnoff notes with indefinite duration (p3 < 0 or MIDI).
         If allowRelease is True, the killed instances are allowed to release.
         """
-        return libcsound.csoundKillInstance(self.cs, MYFLT(instr), cstring(instrName), c_int(mode), c_int(allowRelease))
+        return libcsound.csoundKillInstance(self.cs, MYFLT(instr), cstring(instrName), mode, c_int(allowRelease))
     
+    def registerSenseEventCallback(self, function, userData):
+        """Register a function to be called by sensevents().
+        
+        This function will be called once in every control period. Any number
+        of functions may be registered, and will be called in the order of
+        registration.
+        The callback function takes two arguments: the Csound instance
+        pointer, and the userData pointer as passed to this function.
+        This facility can be used to ensure a function is called synchronously
+        before every csound control buffer processing. It is important
+        to make sure no blocking operations are performed in the callback.
+        The callbacks are cleared on cleanup().
+        Return zero on success.
+        """
+        return libcsound.csoundRegisterSenseEventCallback(self.cs, SENSEFUNC(function), py_object(userData))
     
+    def kerPress(self, c):
+        """Set the ASCII code of the most recent key pressed.
+        
+        This value is used by the 'sensekey' opcode if a callback for
+        returning keyboard events is not set (see registerKeyboardCallback()).
+        """
+        libcsound.csoundKeyPress(self.cs, c_char(c))
+    
+    def registerKeyboardCallback(self, function, userData, type_):
+        """Registers general purpose callback functions for keyboard events.
+        
+        These callbacks are called on every control period by the sensekey
+        opcode.
+        The callback is preserved on reset(), and multiple
+        callbacks may be set and will be called in reverse order of
+        registration. If the same function is set again, it is only moved
+        in the list of callbacks so that it will be called first, and the
+        user data and type mask parameters are updated. 'type_' can be the
+        bitwise OR of callback types for which the function should be called,
+        or zero for all types.
+        Returns zero on success, CSOUND_ERROR if the specified function
+        pointer or type mask is invalid, and CSOUND_MEMORY if there is not
+        enough memory.
+        
+        The callback function takes the following arguments:
+          userData
+            the "user data" pointer, as specified when setting the callback
+          p
+            data pointer, depending on the callback type
+          type_
+            callback type, can be one of the following (more may be added in
+            future versions of Csound):
+              CSOUND_CALLBACK_KBD_EVENT
+              CSOUND_CALLBACK_KBD_TEXT
+                called by the sensekey opcode to fetch key codes. The data
+                pointer is a pointer to a single value of type 'int', for
+                returning the key code, which can be in the range 1 to 65535,
+                or 0 if there is no keyboard event.
+                For CSOUND_CALLBACK_KBD_EVENT, both key press and release
+                events should be returned (with 65536 (0x10000) added to the
+                key code in the latter case) as unshifted ASCII codes.
+                CSOUND_CALLBACK_KBD_TEXT expects key press events only as the
+                actual text that is typed.
+        The return value should be zero on success, negative on error, and
+        positive if the callback was ignored (for example because the type is
+        not known).
+        """
+        return libcsound.csoundRegisterKeyboardCallback(self.cs, KEYBOARDFUNC(function), py_object(userData), c_uint(type_))
+    
+    def removeKeyboardCallback(self, function):
+        """Remove a callback previously set with registerKeyboardCallback()."""
+        libcsound.csoundRemoveKeyboardCallback(self.cs, KEYBOARDFUNC(function))
+    
+    #Tables
+    def tableLength(self, table):
+        """Return the length of a function table.
+        
+        (not including the guard point).
+        If the table does not exist, return -1.
+        """
+        return libcsound.csoundTableLength(self.cs, table)
+    
+    def tableGet(self, table, index):
+        """Return the value of a slot in a function table.
+        
+        The table number and index are assumed to be valid.
+        """
+        return libcsound.csoundTableGet(self.cs, table, index)
+    
+    def tableSet(self, table, index, value):
+        """Set the value of a slot in a function table.
+        
+        The table number and index are assumed to be valid.
+        """
+        libcsound.csoundTableSet(self.cs, table, index, MYFLT(value))
+    
+    def tableCopyOut(self, table, dest):
+        """Copy the contents of a function table into a supplied ndarray dest.
+        
+        The table number is assumed to be valid, and the destination needs to
+        have sufficient space to receive all the function table contents.
+        """
+        ptr = dest.ctypes.data_as(POINTER(MYFLT))
+        libcsound.csoundTableCopyOut(self.cs, table, ptr)
+    
+    def tableCopyIn(self, table, src):
+        """Copy the contents of an ndarray src into a given function table.
+        
+        The table number is assumed to be valid, and the table needs to
+        have sufficient space to receive all the array contents.
+        """
+        ptr = src.ctypes.data_as(POINTER(MYFLT))
+        libcsound.csoundTableCopyIn(self.cs, table, ptr)
+    
+    def table(self, tableNum):
+        """Return a pointer to function table 'tableNum' as an ndarray.
+        
+        The ndarray does not include the guard point. If the table does not
+        exist, None is returned.
+        """
+        ptr = pointer(MYFLT(0.0))
+        size = libcsound.csoundGetTable(self.cs, byref(ptr), tableNum)
+        if size < 0:
+            return None
+        arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (size,), 'C_CONTIGUOUS')
+        p = cast(addressof(ptr), arrayType)
+        return np.ctypeslib.as_array(p)
+        
+    def tableArgs(self, tableNum):
+        """Return a pointer to the args used to generate a function table.
+        
+        The pointer is returned as an ndarray. If the table does not exist,
+        None is returned.
+        NB: the argument list starts with the GEN number and is followed by
+        its parameters. eg. f 1 0 1024 10 1 0.5  yields the list
+        {10.0, 1.0, 0.5}
+        """
+        ptr = pointer(MYFLT(0.0))
+        size = libcsound.csoundGetTableArgs(self.cs, byref(ptr), tableNum)
+        if size < 0:
+            return None
+        arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (size,), 'C_CONTIGUOUS')
+        p = cast(addressof(ptr), arrayType)
+        return np.ctypeslib.as_array(p)
+    
+    #Function table display
+
+
