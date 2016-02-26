@@ -339,6 +339,37 @@ OPCODEFUNC = CFUNCTYPE(c_int, c_void_p, c_void_p)
 libcsound.csoundAppendOpcode.argtypes = [c_void_p, c_char_p, c_int, c_int, c_int, \
                                          c_char_p, c_char_p, OPCODEFUNC, OPCODEFUNC, OPCODEFUNC]
 
+YIELDFUNC = CFUNCTYPE(c_int, c_void_p)
+libcsound.csoundSetYieldCallback.argtypes = [c_void_p, YIELDFUNC]
+THREADFUNC = CFUNCTYPE(POINTER(c_uint), py_object)
+libcsound.csoundCreateThread.restype = c_void_p
+libcsound.csoundCreateThread.argtypes = [THREADFUNC, py_object]
+libcsound.csoundGetCurrentThreadId.restype = c_void_p
+libcsound.csoundJoinThread.restype = POINTER(c_uint)
+libcsound.csoundJoinThread.argtypes = [c_void_p]
+libcsound.csoundCreateThreadLock.restype = c_void_p
+libcsound.csoundWaitThreadLock.argtypes = [c_void_p, c_uint]
+libcsound.csoundWaitThreadLockNoTimeout.argtypes = [c_void_p]
+libcsound.csoundNotifyThreadLock.argtypes = [c_void_p]
+libcsound.csoundDestroyThreadLock.argtypes = [c_void_p]
+libcsound.csoundCreateMutex.restype = c_void_p
+libcsound.csoundCreateMutex.argtypes = [c_int]
+libcsound.csoundLockMutex.argtypes = [c_void_p]
+libcsound.csoundLockMutexNoWait.argtypes = [c_void_p]
+libcsound.csoundUnlockMutex.argtypes = [c_void_p]
+libcsound.csoundDestroyMutex.argtypes = [c_void_p]
+libcsound.csoundCreateBarrier.restype = c_void_p
+libcsound.csoundCreateBarrier.argtypes = [c_uint]
+libcsound.csoundDestroyBarrier.argtypes = [c_void_p]
+libcsound.csoundWaitBarrier.argtypes = [c_void_p]
+libcsound.csoundSleep.argtypes = [c_uint]
+hasSpinLock = True
+try:
+    libcsound.csoundSpinLock.argtypes = [c_void_p]
+    libcsound.csoundSpinUnLock.argtypes = [c_void_p]
+except AttributeError:
+    hasSpinLock = False
+
 def cstring(s):
     if sys.version_info[0] >= 3 and s != None:
         return bytes(s, 'utf-8')
@@ -418,7 +449,7 @@ CSOUND_CONTROL_CHANNEL_LIN  = 2
 CSOUND_CONTROL_CHANNEL_EXP  = 3
 
 class Csound:
-    # Instantiation
+    #Instantiation
     def __init__(self, hostData=None):
         """Creates an instance of Csound.
        
@@ -1577,7 +1608,7 @@ class Csound:
         p = cast(addressof(ptr), arrayType)
         return np.ctypeslib.as_array(p)
     
-    #Function table display
+    #Function Table Display
     def setIsGraphable(self, isGraphable):
         """Tell Csound whether external graphic table display is supported.
         
@@ -1648,3 +1679,194 @@ class Csound:
                                             OPCODEFUNC(kopfunc),
                                             OPCODEFUNC(aopfunc))
     
+    #Threading and Concurrency
+    def setYieldCallback(self, function):
+        """
+        Called by external software to set a yield function.
+        
+        This callback is usef for checking system events, yielding cpu time
+        for coopertative multitasking, etc.
+        This function is optional. It is often used as a way to 'turn off'
+        Csound, allowing it to exit gracefully. In addition, some operations
+        like utility analysis routines are not reentrant and you should use
+        this function to do any kind of updating during the operation.
+        Returns an 'OK to continue' boolean.
+        """
+        libcsound.csoundSetYieldCallback(self.cs, YIELDFUNC(function))
+
+    def createThread(self, function, userdata):
+        """Create and start a new thread of execution.
+        
+        Return an opaque pointer that represents the thread on success,
+        or None for failure.
+        The userdata pointer is passed to the thread routine.
+        """
+        ret = libcsound.csoundCreateThread(THREADFUNC(function), py_object(userdata))
+        if (ret):
+            return ret
+        return None
+    
+    def currentThreadId(self):
+        """Return the ID of the currently executing thread, or None for failure.
+        
+        NOTE: The return value can be used as a pointer
+        to a thread object, but it should not be compared
+        as a pointer. The pointed to values should be compared,
+        and the user must free the pointer after use.
+        """
+        ret = libcsound.csoundGetCurrentThreadId()
+        if (ret):
+            return ret
+        return None
+    
+    def joinThread(self, thread):
+        """Wait until the indicated thread's routine has finished.
+        
+        Return the value returned by the thread routine.
+        """
+        return libcsound.csoundJoinThread(thread)
+    
+    def createThreadLock(self):
+        """Create and return a monitor object, or None if not successful.
+        
+        The object is initially in signaled (notified) state.
+        """
+        ret = libcsound.csoundCreateThreadLock()
+        if (ret):
+            return ret
+        return None
+    
+    def waitThreadLock(self, lock, milliseconds):
+        """Wait on the indicated monitor object for the indicated period.
+        
+        The function returns either when the monitor object is notified,
+        or when the period has elapsed, whichever is sooner; in the first case,
+        zero is returned.
+        If 'milliseconds' is zero and the object is not notified, the function
+        will return immediately with a non-zero status.
+        """
+        return libcsound.csoundWaitThreadLock(lock, c_uint(milliseconds))
+    
+    def waitThreadLockNoTimeout(self, lock):
+        """Wait on the indicated monitor object until it is notified.
+        
+        This function is similar to waitThreadLock() with an infinite
+        wait time, but may be more efficient.
+        """
+        libcsound.csoundWaitThreadLockNoTimeout(lock)
+    
+    def notifyThreadLock(self, lock):
+        """Notify the indicated monitor object."""
+        libcsound.csoundNotifyThreadLock(lock)
+        
+    def destroyThreadLock(self, lock):
+        """Destroy the indicated monitor object."""
+        libcsound.csoundDestroyThreadLock(lock)
+        
+    def createMutex(self, isRecursive):
+        """Create and return a mutex object, or None if not successful.
+        
+        Mutexes can be faster than the more general purpose monitor objects
+        returned by createThreadLock() on some platforms, and can also
+        be recursive, but the result of unlocking a mutex that is owned by
+        another thread or is not locked is undefined.
+        If 'isRecursive' True, the mutex can be re-locked multiple
+        times by the same thread, requiring an equal number of unlock calls;
+        otherwise, attempting to re-lock the mutex results in undefined
+        behavior.
+        Note: the handles returned by createThreadLock() and
+        createMutex() are not compatible.
+        """
+        ret = libcsound.csoundCreateMutex(c_int(isRecursive))
+        if ret:
+            return ret
+        return None
+    
+    def lockMutex(self, mutex):
+        """Acquire the indicated mutex object.
+        
+        If it is already in use by another thread, the function waits until
+        the mutex is released by the other thread.
+        """
+        libcsound.csoundLockMutex(mutex)
+    
+    def lockMutexNoWait(self, mutex):
+        """Acquire the indicated mutex object.
+        
+        Returns zero, unless it is already in use by another thread, in which
+        case a non-zero value is returned immediately, rather than waiting
+        until the mutex becomes available.
+        Note: this function may be unimplemented on Windows.
+        """
+        return libcsound.csoundLockMutexNoWait(mutex)
+    
+    def unlockMutex(self, mutex):
+        """Release the indicated mutex object.
+        
+        The mutex should be owned by the current thread, otherwise the
+        operation of this function is undefined. A recursive mutex needs
+        to be unlocked as many times as it was locked previously.
+        """
+        libcsound.csoundUnlockMutex(mutex)
+    
+    def destroyMutex(self, mutex):
+        """Destroy the indicated mutex object.
+        
+        Destroying a mutex that is currently owned by a thread results
+        in undefined behavior.
+        """
+        libcsound.csoundDestroyMutex(mutex)
+    
+    def createBarrier(self, max_):
+        """Create a Thread Barrier.
+        
+        Max value parameter should be equal to the number of child threads
+        using the barrier plus one for the master thread.
+        """
+        ret = libcsound.csoundCreateBarrier(c_uint(max_))
+        if (ret):
+            return ret
+        return None
+    
+    def destroyBarrier(self, barrier):
+        """Destroy a Thread Barrier."""
+        return libcsound.csoundDestroyBarrier(barrier)
+    
+    def waitBarrier(self, barrier):
+        """Wait on the thread barrier."""
+        return libcsound.csoundWaitBarrier(barrier)
+    
+    def sleep(self, milliseconds):
+        """Wait for at least the specified number of milliseconds.
+        
+        It yields the CPU to other threads.
+        """
+        libcsound.csoundSleep(c_uint(milliseconds))
+    
+    if (hasSpinLock):
+        def spinLock(self, spinlock):
+            """Lock the specified spinlock.
+            
+            If the spinlock is not locked, lock it and return;
+            if is is locked, wait until it is unlocked, then lock it and return.
+            Uses atomic compare and swap operations that are safe across processors
+            and safe for out of order operations,
+            and which are more efficient than operating system locks.
+            Use spinlocks to protect access to shared data, especially in functions
+            that do little more than read or write such data, for example:
+            
+                lock = ctypes.c_int(0)
+                def write(cs, frames, signal):
+                    cs.spinLock(ctypes.byref(lock))
+                    for frame in range(frames) :
+                        global_buffer[frame] += signal[frame];
+                    cs.spinUnlock(ctypes.byref(lock))
+            """
+            libcsound.csoundSpinLock(spinlock)
+        
+        def spinUnlock(self, spinlock):
+            """Unlock the specified spinlock ; (see spinlock())."""
+            libcsound.csoundSpinUnLock(spinlock)
+    
+    #Miscellaneous Functions
+
