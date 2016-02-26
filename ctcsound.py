@@ -376,7 +376,7 @@ def cstring(s):
     return s
 
 def pstring(s):
-    if sys.version_info[0] >= 3and s != None:
+    if sys.version_info[0] >= 3 and s != None:
         return str(s, 'utf-8')
     return s
 
@@ -662,7 +662,7 @@ class Csound:
         """
         return libcsound.csoundReset(self.cs)
     
-    # Attributes
+    #Attributes
     def sr(self):
         """Return the number of audio sample frames per second."""
         return libcsound.csoundGetSr(self.cs)
@@ -754,7 +754,7 @@ class Csound:
         """
         libcsound.csoundSetDebug(self.cs, c_int(debug))
 
-    # General Input/Output
+    #General Input/Output
     def outputName(self):
         """Return the output audio output name (-o)"""
         s = libcsound.csoundGetOutputName(self.cs)
@@ -813,7 +813,7 @@ class Csound:
         """
         libcsound.csoundSetFileOpenCallback(self.cs, FILEOPENFUNC(function))
 
-    # Realtime Audio I/O
+    #Realtime Audio I/O
     def setRTAudioModule(self, module):
         """Set the current RT audio module."""
         libcsound.csoundSetRTAudioModule(self.cs, cstring(module))
