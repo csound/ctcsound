@@ -86,7 +86,7 @@ class OpcodeListEntry(Structure):
 
 class CsoundRandMTState(Structure):
     _fields_ = [("mti", c_int),
-                ("mt[624]", c_uint32)]
+                ("mt", c_uint32*624)]
 
 # PVSDATEXT is a variation on PVSDAT used in the pvs bus interface
 class PvsdatExt(Structure):
@@ -406,6 +406,17 @@ libcsound.csoundRand31.argtypes = [POINTER(c_int)]
 libcsound.csoundSeedRandMT.argtypes = [POINTER(CsoundRandMTState), POINTER(c_uint32), c_uint32]
 libcsound.csoundRandMT.restype = c_uint32
 libcsound.csoundRandMT.argtypes = [POINTER(CsoundRandMTState)]
+libcsound.csoundCreateCircularBuffer.restype = c_void_p
+libcsound.csoundCreateCircularBuffer.argtypes = [c_void_p, c_int, c_int]
+libcsound.csoundReadCircularBuffer.argtypes = [c_void_p, c_void_p, c_void_p, c_int]
+libcsound.csoundPeekCircularBuffer.argtypes = [c_void_p, c_void_p, c_void_p, c_int]
+libcsound.csoundWriteCircularBuffer.argtypes = [c_void_p, c_void_p, c_void_p, c_int]
+libcsound.csoundFlushCircularBuffer.argtypes = [c_void_p, c_void_p]
+libcsound.csoundDestroyCircularBuffer.argtypes = [c_void_p, c_void_p]
+libcsound.csoundOpenLibrary.argtypes = [POINTER(c_void_p), c_char_p]
+libcsound.csoundCloseLibrary.argtypes = [c_void_p]
+libcsound.csoundGetLibrarySymbol.retype = c_void_p
+libcsound.csoundGetLibrarySymbol.argtypes = [c_void_p, c_char_p]
 
 
 def cstring(s):
@@ -838,12 +849,63 @@ def csoundSetGlobalEnv(name, value):
     """
     return libcsound.csoundSetGlobalEnv(cstring(name), cstring(value))
 
-'''def csoundRand31():
-libcsound.csoundRand31.argtypes = [POINTER(c_int)]
-libcsound.csoundSeedRandMT.argtypes = [POINTER(CsoundRandMTState), POINTER(c_uint32), c_uint32]
-libcsound.csoundRandMT.restype = c_uint32
-libcsound.csoundRandMT.argtypes = [POINTER(CsoundRandMTState)]
-'''
+def csoundRand31(seed):
+    """Simple linear congruential random number generator.
+    
+        seed = seed * 742938285 % 2147483647
+    the initial value of seed must be in the range 1 to 2147483646.
+    Return the next number from the pseudo-random sequence,
+    in the range 1 to 2147483646.
+    """
+    n = c_int(seed)
+    return libcsound.csoundRand31(byref(n))
+
+def csoundSeedRandMT(initKey):
+    """Initialize Mersenne Twister (MT19937) random number generator.
+    
+    initKey can be a single int, a list of int, or an ndarray of int. Those int
+    values are converted to unsigned 32 bit values and used for seeding.
+    Return a CsoundRandMTState stuct to be used by csoundRandMT().
+    """
+    state = CsoundRandMTState()
+    if type(initKey) == int:
+        if initKey < 0:
+            initKey = -initKey
+        libcsound.csoundSeedRandMT(byref(state), None, c_uint32(initKey))
+    elif type(initKey) == list or type(initKey) == np.ndarray:
+        n = len(initKey)
+        lst = (c_uint32 * n)()
+        for i in range(n):
+            k = initKey[i]
+            if k < 0 :
+                k = -k
+            lst[i] = c_uint32(k)
+        p = pointer(lst)
+        p = cast(p, POINTER(c_uint32))
+        libcsound.csoundSeedRandMT(byref(state), p, c_uint32(len(lst)))
+    return state
+
+def csoundRandMT(state):
+    """Return next random number from MT19937 generator.
+    
+    The PRNG must be initialized first by calling csoundSeedRandMT().
+    """
+    return libcsound.csoundRandMT(byref(state))
+
+def csoundOpenLibrary(libraryPath):
+    """Platform-independent function to load a shared library."""
+    ptr = POINTER(c_int)()
+    library = cast(ptr, c_void_p)
+    ret = libcsound.csoundOpenLibrary(byref(library), cstring(libraryPath))
+    return ret, library
+
+def csoundCloseLibrary(library):
+    """Platform-independent function to unload a shared library."""
+    libcsound.csoundCloseLibrary(library)
+
+def csoundGetLibrarySymbol(library, symbolName):
+    """Platform-independent function to get a symbol address in a shared library."""
+    return libcsound.csoundGetLibrarySymbol(library, cstring(symbolName))
 
 
 class Csound:
@@ -1655,7 +1717,7 @@ class Csound:
             length = 1
         elif chanType == CSOUND_AUDIO_CHANNEL:
             length = libcsound.csoundGetKsmps(self.cs)
-        ptr = pointer(MYFLT(0.0))
+        ptr = POINTER(MYFLT)()
         err = ''
         ret = libcsound.csoundGetChannelPtr(self.cs, byref(ptr), cstring(name), type_)
         if ret == CSOUND_SUCCESS:
@@ -1694,7 +1756,7 @@ class Csound:
         """
         cInfos = None
         err = ''
-        ptr = cast(pointer(MYFLT(0.0)), POINTER(ControlChannelInfo))
+        ptr = cast(POINTER(c_int)(), POINTER(ControlChannelInfo))
         n = libcsound.csoundListChannels(self.cs, byref(ptr))
         if n == CSOUND_MEMORY :
             err = 'There is not enough memory for allocating the list'
@@ -1981,7 +2043,7 @@ class Csound:
         The ndarray does not include the guard point. If the table does not
         exist, None is returned.
         """
-        ptr = pointer(MYFLT(0.0))
+        ptr = POINTER(MYFLT)()
         size = libcsound.csoundGetTable(self.cs, byref(ptr), tableNum)
         if size < 0:
             return None
@@ -1998,7 +2060,7 @@ class Csound:
         its parameters. eg. f 1 0 1024 10 1 0.5  yields the list
         {10.0, 1.0, 0.5}
         """
-        ptr = pointer(MYFLT(0.0))
+        ptr = POINTER(MYFLT)()
         size = libcsound.csoundGetTableArgs(self.cs, byref(ptr), tableNum)
         if size < 0:
             return None
@@ -2052,7 +2114,7 @@ class Csound:
         Make sure to call disposeOpcodeList() when done with the list.
         """
         opcodes = None
-        ptr = cast(pointer(MYFLT(0.0)), POINTER(OpcodeListEntry))
+        ptr = cast(POINTER(c_int)(), POINTER(OpcodeListEntry))
         n = libcsound.csoundNewOpcodeList(self.cs, byref(ptr))
         if n > 0:
             opcodes = cast(ptr, POINTER(OpcodeListEntry * n)).contents
@@ -2181,4 +2243,67 @@ class Csound:
             return pstring(ptr)
         return None
     
+    def createCircularBuffer(self, numelem, elemsize):
+        """Create circular buffer with numelem number of elements.
+        
+        The element's size is set from elemsize. It should be used like:
+            rb = cs.createCircularBuffer(1024, cs.sizeOfMYFLT())
+        """
+        return libcsound.csoundCreateCircularBuffer(self.cs, numelem, elemsize)
+    
+    def readCircularBuffer(self, circularBuffer, out, items):
+        """Read from circular buffer.
+        
+            circular_buffer - pointer to an existing circular buffer
+            out - preallocated ndarray with at least items number of elements,
+                  where buffer contents will be read into
+            items - number of samples to be read
+        Return the actual number of items read (0 <= n <= items).
+        """
+        if len(out) < items:
+            return 0
+        ptr = out.ctypes.data_as(c_void_p)
+        return libcsound.csoundReadCircularBuffer(self.cs, circularBuffer, ptr, items)
+    
+    def peekCircularBuffer(self, circularBuffer, out, items):
+        """Read from circular buffer without removing them from the buffer.
+        
+            circular_buffer - pointer to an existing circular buffer
+            out - preallocated ndarray with at least items number of elements,
+                  where buffer contents will be read into
+            items - number of samples to be read
+        Return the actual number of items read (0 <= n <= items).
+        """
+        if len(out) < items:
+            return 0
+        ptr = out.ctypes.data_as(c_void_p)
+        return libcsound.csoundPeekCircularBuffer(self.cs, circularBuffer, ptr, items)
+    
+    def writeToCircularBuffer(self, circularBuffer, in_, items):
+        """Write to circular buffer.
+        
+            circular_buffer - pointer to an existing circular buffer
+            in_ - ndarray with at least items number of elements to be written
+                  into circular buffer
+            items - number of samples to write
+        Return the actual number of items written (0 <= n <= items).
+        """
+        if len(in_) < items:
+            return 0
+        ptr = in_.ctypes.data_as(c_void_p)
+        return libcsound.csoundWriteCircularBuffer(self.cs, circularBuffer, ptr, items)
+    
+    def flushCircularBuffer(self, circularBuffer):
+        """Empty circular buffer of any remaining data.
+        
+        This function should only be used if there is no reader actively
+        getting data from the buffer.
+            circular_buffer - pointer to an existing circular buffer
+        """
+        libcsound.csoundFlushCircularBuffer(self.cs, circularBuffer)
+    
+    def destroyCircularBuffer(self, circularBuffer):
+        """Free circular buffer."""
+        libcsound.csoundDestroyCircularBuffer(self.cs, circularBuffer)
+
 
