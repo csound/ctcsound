@@ -594,6 +594,19 @@ def csoundCreate(hostData):
     """
     return libcsound.csoundCreate(py_object(hostData))
 
+def csoundGetVersion():
+    """Returns the version number times 1000 (5.00.0 = 5000)."""
+    return libcsound.csoundGetVersion()
+
+def csoundGetAPIVersion():
+    """Returns the API version number times 100 (1.00 = 100)."""
+    return libcsound.csoundGetAPIVersion()
+
+#Attributes
+def csoundGetSizeOfMYFLT():
+    """Return the size of MYFLT in bytes."""
+    return libcsound.csoundGetSizeOfMYFLT()
+
 #Threading and Concurrency
 def csoundCreateThread(function, userdata):
     """Create and start a new thread of execution.
@@ -924,14 +937,6 @@ class Csound:
         """Destroys an instance of Csound."""
         libcsound.csoundDestroy(self.cs)
 
-    def version(self):
-        """Returns the version number times 1000 (5.00.0 = 5000)."""
-        return libcsound.csoundGetVersion()
-    
-    def APIVersion(self):
-        """Returns the API version number times 100 (1.00 = 100)."""
-        return libcsound.csoundGetAPIVersion()
-    
     #Performance
     def parseOrc(self, orc):
         """Parse the given orchestra from an ASCII string into a TREE.
@@ -1157,10 +1162,6 @@ class Csound:
     def currentTimeSamples(self):
         """Return the current performance time in samples."""
         return libcsound.csoundGetCurrentTimeSamples(self.cs)
-    
-    def sizeOfMYFLT(self):
-        """Return the size of MYFLT in bytes."""
-        return libcsound.csoundGetSizeOfMYFLT()
     
     def hostData(self):
         """Return host data."""

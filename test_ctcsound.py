@@ -20,8 +20,8 @@ class TestIntanstiation(unittest.TestCase):
         self.assertEqual(7, self.cs.hostData())
     
     def test_versions(self):
-        self.assertTrue(self.cs.version() >= 6050)
-        self.assertTrue(self.cs.APIVersion() >= 300)
+        self.assertTrue(ctcsound.csoundGetVersion() >= 6050)
+        self.assertTrue(ctcsound.csoundGetAPIVersion() >= 300)
 
 class TestPerformance(unittest.TestCase):
     @classmethod
