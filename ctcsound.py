@@ -5,7 +5,7 @@ import sys
 if sys.platform.startswith('linux'):
     libcsound = CDLL("libcsound64.so")
 elif sys.platform.startswith('win'):
-    libcsound = cdll.libcsound64
+    libcsound = cdll.csound64
 elif sys.platform.startswith('darwin'):
     libcsound = CDLL("libcsound64.dylib")
 else:
