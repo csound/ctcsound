@@ -30,7 +30,7 @@ if sys.platform.startswith('linux'):
 elif sys.platform.startswith('win'):
     libcsound = cdll.csound64
 elif sys.platform.startswith('darwin'):
-    libcsound = CDLL("libcsound64.dylib")
+    libcsound = CDLL("CsoundLib64.framework/CsoundLib64")
 else:
     sys.exit("Don't know your system! Exiting...")
 
