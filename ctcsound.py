@@ -574,12 +574,12 @@ CSLANGUAGE_COLUMBIAN = 72
 
 #Instantiation
 def csoundInitialize(flags):
-    """Initialise Csound library with specific flags.
+    """Initialize Csound library with specific flags.
     
     This function is called internally by csoundCreate(), so there is generally
     no need to use it explicitly unless you need to avoid default initilization
     that sets signal handlers and atexit() callbacks.
-    Return value is zero on success, positive if initialisation was
+    Return value is zero on success, positive if initialization was
     done already, and negative on error.
     """
     return libcsound.csoundInitialize(flags)
@@ -923,7 +923,7 @@ def csoundGetLibrarySymbol(library, symbolName):
 
 class Csound:
     #Instantiation
-    def __init__(self, hostData=None):
+    def __init__(self, hostData=None, pointer=None):
         """Creates an instance of Csound.
        
         Get an opaque pointer that must be passed to most Csound API
@@ -931,11 +931,17 @@ class Csound:
         sort of data; these data can be accessed from the Csound instance
         that is passed to callback routines.
         """
-        self.cs = libcsound.csoundCreate(py_object(hostData))
+        if pointer:
+            self.cs = pointer
+            self.fromPointer = True
+        else:
+            self.cs = libcsound.csoundCreate(py_object(hostData))
+            self.fromPointer = False
     
     def __del__(self):
         """Destroys an instance of Csound."""
-        libcsound.csoundDestroy(self.cs)
+        if not self.fromPointer:
+            libcsound.csoundDestroy(self.cs)
 
     #Performance
     def parseOrc(self, orc):
