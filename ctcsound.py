@@ -460,6 +460,7 @@ def csoundArgList(lst):
         argv[i] = cast(pointer(create_string_buffer(v)), POINTER(c_char_p))
     return c_int(argc), cast(argv, POINTER(c_char_p))
 
+
 # message types (only one can be specified)
 CSOUNDMSG_DEFAULT = 0x0000       # standard message
 CSOUNDMSG_ERROR = 0x1000         # error message (initerror, perferror, etc.)
@@ -595,6 +596,7 @@ CSLANGUAGE_UZBEK = 70
 CSLANGUAGE_VIETNAMESE = 71
 CSLANGUAGE_COLUMBIAN = 72
 
+
 #Instantiation
 def csoundInitialize(flags):
     """Initialize Csound library with specific flags.
@@ -606,16 +608,6 @@ def csoundInitialize(flags):
     done already, and negative on error.
     """
     return libcsound.csoundInitialize(flags)
-
-def csoundCreate(hostData):
-    """Creates an instance of Csound.
-   
-    Get an opaque pointer that must be passed to most Csound API
-    functions. The hostData parameter can be None, or it can be any
-    sort of data; these data can be accessed from the Csound instance
-    that is passed to callback routines.
-    """
-    return libcsound.csoundCreate(py_object(hostData))
 
 def csoundGetVersion():
     """Returns the version number times 1000 (5.00.0 = 5000)."""
@@ -2335,5 +2327,4 @@ class Csound:
     def destroyCircularBuffer(self, circularBuffer):
         """Free circular buffer."""
         libcsound.csoundDestroyCircularBuffer(self.cs, circularBuffer)
-
 
