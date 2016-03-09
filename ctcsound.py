@@ -960,7 +960,7 @@ class Csound:
     
     def __del__(self):
         """Destroys an instance of Csound."""
-        if not self.fromPointer:
+        if not self.fromPointer and libcsound:
             libcsound.csoundDestroy(self.cs)
 
     #Performance

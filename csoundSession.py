@@ -56,7 +56,7 @@ class CsoundSession(ctcsound.Csound):
                 self.pt.stop()
             self.pt.join()
             self.pt = None
-        self.reset()
+        self.cleanup()
 
     def csdFileName(self):
         """Return the loaded csd filename or None"""
