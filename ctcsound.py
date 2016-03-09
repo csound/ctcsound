@@ -442,6 +442,11 @@ libcsound.csoundGetLibrarySymbol.retype = c_void_p
 libcsound.csoundGetLibrarySymbol.argtypes = [c_void_p, c_char_p]
 
 
+def cchar(s):
+    if sys.version_info[0] >= 3:
+        return c_char(ord(s[0]))
+    return c_char(s[0])
+
 def cstring(s):
     if sys.version_info[0] >= 3 and s != None:
         return bytes(s, 'utf-8')
@@ -938,7 +943,7 @@ def csoundGetLibrarySymbol(library, symbolName):
 
 class Csound:
     #Instantiation
-    def __init__(self, hostData=None, pointer=None):
+    def __init__(self, hostData=None, pointer_=None):
         """Creates an instance of Csound.
        
         Get an opaque pointer that must be passed to most Csound API
@@ -946,8 +951,8 @@ class Csound:
         sort of data; these data can be accessed from the Csound instance
         that is passed to callback routines.
         """
-        if pointer:
-            self.cs = pointer
+        if pointer_:
+            self.cs = pointer_
             self.fromPointer = True
         else:
             self.cs = libcsound.csoundCreate(py_object(hostData))
@@ -1341,7 +1346,7 @@ class Csound:
         buf = libcsound.csoundGetInputBuffer(self.cs)
         size = libcsound.csoundGetInputBufferSize(self.cs)
         arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (size,), 'C_CONTIGUOUS')
-        p = cast(addressof(buf), arrayType)
+        p = cast(buf, arrayType)
         return np.ctypeslib.as_array(p)
     
     def outputBuffer(self):
@@ -1353,7 +1358,7 @@ class Csound:
         buf = libcsound.csoundGetOutputBuffer(self.cs)
         size = libcsound.csoundGetOutputBufferSize(self.cs)
         arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (size,), 'C_CONTIGUOUS')
-        p = cast(addressof(buf), arrayType)
+        p = cast(buf, arrayType)
         return np.ctypeslib.as_array(p)
     
     def spin(self):
@@ -1365,7 +1370,7 @@ class Csound:
         buf = libcsound.csoundGetSpin(self.cs)
         size = self.ksmps() * self.nchnlsInput()
         arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (size,), 'C_CONTIGUOUS')
-        p = cast(addressof(buf), arrayType)
+        p = cast(buf, arrayType)
         return np.ctypeslib.as_array(p)
     
     def addSpinSample(self, frame, channel, sample):
@@ -1385,7 +1390,7 @@ class Csound:
         buf = libcsound.csoundGetSpout(self.cs)
         size = self.ksmps() * self.nchnls()
         arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (size,), 'C_CONTIGUOUS')
-        p = cast(addressof(buf), arrayType)
+        p = cast(buf, arrayType)
         return np.ctypeslib.as_array(p)
     
     def spoutSample(self, frame, channel):
@@ -1558,7 +1563,7 @@ class Csound:
         
         Independently of real-time MIDI events (see setScorePending()).
         """
-        return libcsound.csoundIsScorePending(self.cs)
+        return libcsound.csoundIsScorePending(self.cs) != 0
     
     def setScorePending(self, pending):
         """Set whether Csound score events are performed or not.
@@ -1747,7 +1752,7 @@ class Csound:
                 return cast(ptr, c_char_p), err
             else:
                 arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (length,), 'C_CONTIGUOUS')
-                p = cast(addressof(ptr), arrayType)
+                p = cast(ptr, arrayType)
                 return np.ctypeslib.as_array(p), err
         elif ret == CSOUND_MEMORY:
             err = 'Not enough memory for allocating channel'
@@ -1912,12 +1917,13 @@ class Csound:
         """Send a new score event.
         
         'type_' is the score event type ('a', 'i', 'q', 'f', or 'e').
-        'pFields' is an ndarray of MYFLTs with all the pfields for this event,
-        starting with the p1 value specified in pFields[0].
+        'pFields' is tuple, a list, or an ndarray of MYFLTs with all the pfields
+        for this event, starting with the p1 value specified in pFields[0].
         """
-        ptr = pFields.ctypes.data_as(POINTER(MYFLT))
-        numFields = c_long(pFields.size)
-        return libcsound.csoundScoreEvent(self.cs, c_char(type_), ptr, numFields)
+        p = np.array(pFields).astype(MYFLT)
+        ptr = p.ctypes.data_as(POINTER(MYFLT))
+        numFields = c_long(p.size)
+        return libcsound.csoundScoreEvent(self.cs, cchar(type_), ptr, numFields)
     
     def scoreEventAbsolute(self, type_, pFields, timeOffset):
         """Like scoreEvent(), this function inserts a score event.
@@ -1925,9 +1931,10 @@ class Csound:
         The event is inserted at absolute time with respect to the start of
         performance, or from an offset set with timeOffset.
         """
-        ptr = pFields.ctypes.data_as(POINTER(MYFLT))
-        numFields = c_long(pFields.size)
-        return libcsound.csoundScoreEventAbsolute(self.cs, c_char(type_), ptr, numFields, c_double(timeOffset))
+        p = np.array(pFields).astype(MYFLT)
+        ptr = p.ctypes.data_as(POINTER(MYFLT))
+        numFields = c_long(p.size)
+        return libcsound.csoundScoreEventAbsolute(self.cs, cchar(type_), ptr, numFields, c_double(timeOffset))
     
     def inputMessage(self, message):
         """Input a NULL-terminated string (as if from a console).
@@ -1965,13 +1972,13 @@ class Csound:
         """
         return libcsound.csoundRegisterSenseEventCallback(self.cs, SENSEFUNC(function), py_object(userData))
     
-    def kerPress(self, c):
+    def keyPress(self, c):
         """Set the ASCII code of the most recent key pressed.
         
         This value is used by the 'sensekey' opcode if a callback for
         returning keyboard events is not set (see registerKeyboardCallback()).
         """
-        libcsound.csoundKeyPress(self.cs, c_char(c))
+        libcsound.csoundKeyPress(self.cs, cchar(c))
     
     def registerKeyboardCallback(self, function, userData, type_):
         """Registers general purpose callback functions for keyboard events.
@@ -2070,7 +2077,7 @@ class Csound:
         if size < 0:
             return None
         arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (size,), 'C_CONTIGUOUS')
-        p = cast(addressof(ptr), arrayType)
+        p = cast(ptr, arrayType)
         return np.ctypeslib.as_array(p)
         
     def tableArgs(self, tableNum):
@@ -2087,7 +2094,7 @@ class Csound:
         if size < 0:
             return None
         arrayType = np.ctypeslib.ndpointer(MYFLT, 1, (size,), 'C_CONTIGUOUS')
-        p = cast(addressof(ptr), arrayType)
+        p = cast(ptr, arrayType)
         return np.ctypeslib.as_array(p)
     
     #Function Table Display
@@ -2327,4 +2334,146 @@ class Csound:
     def destroyCircularBuffer(self, circularBuffer):
         """Free circular buffer."""
         libcsound.csoundDestroyCircularBuffer(self.cs, circularBuffer)
+
+
+if sys.platform.startswith('linux'):
+    libcspt = CDLL("libcsnd6.so")
+elif sys.platform.startswith('win'):
+    libcsound = cdll.csnd6
+elif sys.platform.startswith('darwin'):
+    libcsound = CDLL("CsoundLib64.framework/Csnd6")
+else:
+    sys.exit("Don't know your system! Exiting...")
+
+libcspt.NewCsoundPT.restype = c_void_p
+libcspt.NewCsoundPT.argtypes = [c_void_p]
+libcspt.DeleteCsoundPT.argtypes = [c_void_p]
+libcspt.CsoundPTisRunning.argtypes = [c_void_p]
+PROCESSFUNC = CFUNCTYPE(None, c_void_p)
+libcspt.CsoundPTgetProcessCB.restype = c_void_p
+libcspt.CsoundPTgetProcessCB.argtypes = [c_void_p]
+libcspt.CsoundPTsetProcessCB.argtypes = [c_void_p, PROCESSFUNC, c_void_p]
+libcspt.CsoundPTgetCsound.restype = c_void_p
+libcspt.CsoundPTgetCsound.argtypes = [c_void_p]
+libcspt.CsoundPTgetStatus.argtypes = [c_void_p]
+libcspt.CsoundPTplay.argtypes = [c_void_p]
+libcspt.CsoundPTpause.argtypes = [c_void_p]
+libcspt.CsoundPTtogglePause.argtypes = [c_void_p]
+libcspt.CsoundPTstop.argtypes = [c_void_p]
+libcspt.CsoundPTrecord.argtypes = [c_void_p, c_char_p, c_int, c_int]
+libcspt.CsoundPTstopRecord.argtypes = [c_void_p]
+libcspt.CsoundPTscoreEvent.argtypes = [c_void_p, c_int, c_char, c_int, POINTER(MYFLT)]
+libcspt.CsoundPTinputMessage.argtypes = [c_void_p, c_char_p]
+libcspt.CsoundPTsetScoreOffsetSeconds.argtypes = [c_void_p, c_double]
+libcspt.CsoundPTjoin.argtypes = [c_void_p]
+libcspt.CsoundPTflushMessageQueue.argtypes = [c_void_p]
+
+
+class CsoundPerformanceThread:
+    """Perform a score in a separate thread until the end of score is reached.
+    
+    The playback (which is paused by default) is stopped by calling
+    stop(), or if an error occurs.
+    The constructor takes a Csound instance pointer as argument; it assumes
+    that csound.compile_() was called successfully before creating the
+    performance thread. Once the playback is stopped for one of the above
+    mentioned reasons, the performance thread calls csound.cleanup() and
+    returns.
+    """
+    def __init__(self, csp):
+        self.cpt = libcspt.NewCsoundPT(csp)
+    
+    def __del__(self):
+        libcspt.DeleteCsoundPT(self.cpt)
+    
+    def isRunning(self):
+        """Return True if the performance thread is running, False otherwise."""
+        return libcspt.CsoundPTisRunning(self.cpt) != 0
+    
+    def processCB(self):
+        """Return the process callback."""
+        return PROCESSFUNC(libcspt.CsoundPTgetProcessCB(self.cpt))
+    
+    def setProcessCB(self, function, data):
+        """Set the process callback."""
+        libcspt.CsoundPTsetProcessCB(self.cpt, PROCESSFUNC(function), byref(data))
+    
+    def csound(self):
+        """Return the Csound instance pointer."""
+        return libcspt.CsoundPTgetCsound(self.cpt)
+    
+    def status(self):
+        """Return the current status.
+        
+        Zero if still playing, positive if the end of score was reached or
+        performance was stopped, and negative if an error occured.
+        """
+        return libcspt.CsoundPTgetStatus(self.cpt)
+    
+    def play(self):
+        """Continue performance if it was paused."""
+        libcspt.CsoundPTplay(self.cpt)
+    
+    def pause(self):
+        """Pause performance (can be continued by calling Play())."""
+        libcspt.CsoundPTpause(self.cpt)
+    
+    def togglePause(self):
+        """Pause or continue performance, depending on current state."""
+        libcspt.CsoundPTtogglePause(self.cpt)
+    
+    def stop(self):
+        """Stop performance (cannot be continued)."""
+        libcspt.CsoundPTstop(self.cpt)
+    
+    def record(self, filename, samplebits, numbufs):
+        """Start recording the output from Csound.
+        
+        The sample rate and number of channels are taken directly from the
+        running Csound instance.
+        """
+        libcspt.CsoundPTrecord(self.cpt, cstring(filename), samplebits, numbufs)
+    
+    def stopRecord(self):
+        """Stop recording and closes audio file."""
+        libcspt.CsoundPTstopRecord(self.cpt)
+    
+    def scoreEvent(self, absp2mode, opcod, pFields):
+        """Send a score event.
+        
+        The event has type 'opcod' (e.g. 'i' for a note event).
+        'pFields' is tuple, a list, or an ndarray of MYFLTs with all the pfields
+        for this event, starting with the p1 value specified in pFields[0].
+        If 'absp2mode' is non-zero, the start time of the event is measured
+        from the beginning of performance, instead of the default of relative
+        to the current time.
+        """
+        p = np.array(pFields).astype(MYFLT)
+        ptr = p.ctypes.data_as(POINTER(MYFLT))
+        numFields = p.size
+        libcspt.CsoundPTscoreEvent(self.cpt, c_int(absp2mode), cchar(opcod), numFields, ptr)
+    
+    def inputMessage(self, s):
+        """Send a score event as a string, similarly to line events (-L)."""
+        libcspt.CsoundPTinputMessage(self.cpt, cstring(s))
+    
+    def setScoreOffsetSeconds(self, timeVal):
+        """Set the playback time pointer to the specified value (in seconds)."""
+        libcspt.CsoundPTsetScoreOffsetSeconds(self.cpt, c_double(timeVal))
+    
+    def join(self):
+        """Wait until the performance is finished or fails.
+        
+        Return a positive value if the end of score was reached or Stop() was
+        called, and a negative value if an error occured. Also releases any
+        resources associated with the performance thread object.
+        """
+        return libcspt.CsoundPTjoin(self.cpt)
+    
+    def flushMessageQueue(self):
+        """Wait until all pending messages are actually received.
+        
+        (pause, send score event, etc.)
+        """
+        libcspt.CsoundPTflushMessageQueue(self.cpt)
 
