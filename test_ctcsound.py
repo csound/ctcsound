@@ -1,8 +1,45 @@
-import ctcsound
+'''
+    test_ctcsound.py:
+    
+    Copyright (C) 2016 Francois Pinot
+    
+    This file is part of Csound.
+    
+    This code is free software; you can redistribute it
+    and/or modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+    
+    Csound is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+    
+    You should have received a copy of the GNU Lesser General Public
+    License along with Csound; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+    02111-1307 USA
+'''
+
+import ctcsound, numpy as np, ctypes as ct
+from csoundSession import *
 import unittest
 
+cs = None
+
+def setUpModule():
+    global cs
+    cs = CsoundSession("simple.csd")
+    print("coucou")
+
+def tearDownModule():
+    global cs
+    cs.stopPerformance()
+    print("caca")
+
+
 class TestIntanstiation(unittest.TestCase):
-    @classmethod
+    '''    @classmethod
     def setUpClass(self):
         self.initialData = {"string": "mydata", "number": 1956.2705, "boolean": True} 
         self.cs = ctcsound.Csound(self.initialData)
@@ -18,11 +55,12 @@ class TestIntanstiation(unittest.TestCase):
         self.assertEqual("dummy", self.cs.hostData())
         self.cs.setHostData(7)
         self.assertEqual(7, self.cs.hostData())
-    
+    '''    
     def test_versions(self):
         self.assertTrue(ctcsound.csoundGetVersion() >= 6050)
         self.assertTrue(ctcsound.csoundGetAPIVersion() >= 300)
 
+'''
 class TestPerformance(unittest.TestCase):
     @classmethod
     def setUpClass(self):
@@ -94,6 +132,6 @@ class TestRealtimeAudio(unittest.TestCase):
                 break
             print("Module %d:%s (%s)\n" % (n, name, type_))
             n += 1
-    
-if __name__ == '__main__':
-    unittest.main()
+'''    
+#if __name__ == '__main__':
+#    unittest.main()
