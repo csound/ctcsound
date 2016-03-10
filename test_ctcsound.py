@@ -78,5 +78,28 @@ class TestGeneralIO(unittest.TestCase):
         self.assertTrue(np.array_equal(obuf, ibuf/3.0))
 
 
+class TestCsoundPerformanceThread(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.cs = ctcsound.Csound()
+        self.cs.compile_("csoundPerformanceThread", "simple.csd")
+        self.pt = ctcsound.CsoundPerformanceThread(self.cs.cs)
+    
+    @classmethod
+    def tearDownClass(self):
+        self.pt.stop()
+        self.pt.join()
+        
+    def test_csoundPerformanceThread(self):
+        self.pt.play()
+        self.assertTrue(self.pt.isRunning())
+        self.assertEqual(self.pt.status(), 0)
+
+    def test_scoreEvent(self):
+        self.assertEqual(self.cs.tableLength(1), -1)
+        self.pt.scoreEvent(False, 'f', (1, 0, 4096, 10, 1))
+        ctcsound.csoundSleep(1000)
+        self.assertEqual(self.cs.tableLength(1), 4096)
+
 if __name__ == '__main__':
     unittest.main()
