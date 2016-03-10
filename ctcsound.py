@@ -1125,7 +1125,7 @@ class Csound:
         to csound's I/O buffers.
         Returns false during performance, and true when performance is finished.
         """
-        return libcsound.csoundBuffer(self.cs)
+        return libcsound.csoundPerformBuffer(self.cs)
     
     def stop(self):
         """Stop a perform() running in another thread.
