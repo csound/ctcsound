@@ -509,6 +509,10 @@ CSOUND_PERFORMANCE = -3          # Failed during performance.
 CSOUND_MEMORY = -4               # Failed to allocate requested memory.
 CSOUND_SIGNAL = -5               # Termination requested by SIGINT or SIGTERM.
 
+# Flags for csoundInitialize().
+CSOUNDINIT_NO_SIGNAL_HANDLER = 1
+CSOUNDINIT_NO_ATEXIT = 2
+
 # Constants used by the bus interface (csoundGetChannelPtr() etc.).
 CSOUND_CONTROL_CHANNEL = 1
 CSOUND_AUDIO_CHANNEL  = 2
