@@ -641,6 +641,10 @@ class Csound:
         if not self.fromPointer and libcsound:
             libcsound.csoundDestroy(self.cs)
 
+    def csound(self):
+        """Return the opaque pointer to the running Csound instance."""
+        return self.cs
+    
     def version(self):
         """Returns the version number times 1000 (5.00.0 = 5000)."""
         return libcsound.csoundGetVersion()

@@ -83,7 +83,7 @@ class TestCsoundPerformanceThread(unittest.TestCase):
     def setUpClass(self):
         self.cs = ctcsound.Csound()
         self.cs.compile_("csoundPerformanceThread", "simple.csd")
-        self.pt = ctcsound.CsoundPerformanceThread(self.cs.cs)
+        self.pt = ctcsound.CsoundPerformanceThread(self.cs.csound())
     
     @classmethod
     def tearDownClass(self):
