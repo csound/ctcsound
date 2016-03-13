@@ -611,338 +611,12 @@ def csoundInitialize(flags):
     """Initialize Csound library with specific flags.
     
     This function is called internally by csoundCreate(), so there is generally
-    no need to use it explicitly unless you need to avoid default initilization
+    no need to use it explicitly unless you need to avoid default initialization
     that sets signal handlers and atexit() callbacks.
     Return value is zero on success, positive if initialization was
     done already, and negative on error.
     """
     return libcsound.csoundInitialize(flags)
-
-def csoundGetVersion():
-    """Returns the version number times 1000 (5.00.0 = 5000)."""
-    return libcsound.csoundGetVersion()
-
-def csoundGetAPIVersion():
-    """Returns the API version number times 100 (1.00 = 100)."""
-    return libcsound.csoundGetAPIVersion()
-
-#Attributes
-def csoundGetSizeOfMYFLT():
-    """Return the size of MYFLT in bytes."""
-    return libcsound.csoundGetSizeOfMYFLT()
-
-#Threading and Concurrency
-def csoundCreateThread(function, userdata):
-    """Create and start a new thread of execution.
-    
-    Return an opaque pointer that represents the thread on success,
-    or None for failure.
-    The userdata pointer is passed to the thread routine.
-    """
-    ret = libcsound.csoundCreateThread(THREADFUNC(function), py_object(userdata))
-    if (ret):
-        return ret
-    return None
-
-def csoundGetCurrentThreadId():
-    """Return the ID of the currently executing thread, or None for failure.
-    
-    NOTE: The return value can be used as a pointer
-    to a thread object, but it should not be compared
-    as a pointer. The pointed to values should be compared,
-    and the user must free the pointer after use.
-    """
-    ret = libcsound.csoundGetCurrentThreadId()
-    if (ret):
-        return ret
-    return None
-
-def csoundJoinThread(thread):
-    """Wait until the indicated thread's routine has finished.
-    
-    Return the value returned by the thread routine.
-    """
-    return libcsound.csoundJoinThread(thread)
-
-def csoundCreateThreadLock():
-    """Create and return a monitor object, or None if not successful.
-    
-    The object is initially in signaled (notified) state.
-    """
-    ret = libcsound.csoundCreateThreadLock()
-    if (ret):
-        return ret
-    return None
-
-def csoundWaitThreadLock(lock, milliseconds):
-    """Wait on the indicated monitor object for the indicated period.
-    
-    The function returns either when the monitor object is notified,
-    or when the period has elapsed, whichever is sooner; in the first case,
-    zero is returned.
-    If 'milliseconds' is zero and the object is not notified, the function
-    will return immediately with a non-zero status.
-    """
-    return libcsound.csoundWaitThreadLock(lock, c_uint(milliseconds))
-
-def csoundWaitThreadLockNoTimeout(lock):
-    """Wait on the indicated monitor object until it is notified.
-    
-    This function is similar to waitThreadLock() with an infinite
-    wait time, but may be more efficient.
-    """
-    libcsound.csoundWaitThreadLockNoTimeout(lock)
-
-def csoundNotifyThreadLock(lock):
-    """Notify the indicated monitor object."""
-    libcsound.csoundNotifyThreadLock(lock)
-    
-def csoundDestroyThreadLock(lock):
-    """Destroy the indicated monitor object."""
-    libcsound.csoundDestroyThreadLock(lock)
-    
-def csoundCreateMutex(isRecursive):
-    """Create and return a mutex object, or None if not successful.
-    
-    Mutexes can be faster than the more general purpose monitor objects
-    returned by createThreadLock() on some platforms, and can also
-    be recursive, but the result of unlocking a mutex that is owned by
-    another thread or is not locked is undefined.
-    If 'isRecursive' True, the mutex can be re-locked multiple
-    times by the same thread, requiring an equal number of unlock calls;
-    otherwise, attempting to re-lock the mutex results in undefined
-    behavior.
-    Note: the handles returned by createThreadLock() and
-    createMutex() are not compatible.
-    """
-    ret = libcsound.csoundCreateMutex(c_int(isRecursive))
-    if ret:
-        return ret
-    return None
-
-def csoundLockMutex(mutex):
-    """Acquire the indicated mutex object.
-    
-    If it is already in use by another thread, the function waits until
-    the mutex is released by the other thread.
-    """
-    libcsound.csoundLockMutex(mutex)
-
-def csoundLockMutexNoWait(mutex):
-    """Acquire the indicated mutex object.
-    
-    Returns zero, unless it is already in use by another thread, in which
-    case a non-zero value is returned immediately, rather than waiting
-    until the mutex becomes available.
-    Note: this function may be unimplemented on Windows.
-    """
-    return libcsound.csoundLockMutexNoWait(mutex)
-
-def csoundUnlockMutex(mutex):
-    """Release the indicated mutex object.
-    
-    The mutex should be owned by the current thread, otherwise the
-    operation of this function is undefined. A recursive mutex needs
-    to be unlocked as many times as it was locked previously.
-    """
-    libcsound.csoundUnlockMutex(mutex)
-
-def csoundDestroyMutex(mutex):
-    """Destroy the indicated mutex object.
-    
-    Destroying a mutex that is currently owned by a thread results
-    in undefined behavior.
-    """
-    libcsound.csoundDestroyMutex(mutex)
-
-def csoundCreateBarrier(max_):
-    """Create a Thread Barrier.
-    
-    Max value parameter should be equal to the number of child threads
-    using the barrier plus one for the master thread.
-    """
-    ret = libcsound.csoundCreateBarrier(c_uint(max_))
-    if (ret):
-        return ret
-    return None
-
-def csoundDestroyBarrier(barrier):
-    """Destroy a Thread Barrier."""
-    return libcsound.csoundDestroyBarrier(barrier)
-
-def csoundWaitBarrier(barrier):
-    """Wait on the thread barrier."""
-    return libcsound.csoundWaitBarrier(barrier)
-
-def csoundSleep(milliseconds):
-    """Wait for at least the specified number of milliseconds.
-    
-    It yields the CPU to other threads.
-    """
-    libcsound.csoundSleep(c_uint(milliseconds))
-
-if (hasSpinLock):
-    def csoundSpinLock(spinlock):
-        """Lock the specified spinlock.
-        
-        If the spinlock is not locked, lock it and return;
-        if is is locked, wait until it is unlocked, then lock it and return.
-        Uses atomic compare and swap operations that are safe across processors
-        and safe for out of order operations,
-        and which are more efficient than operating system locks.
-        Use spinlocks to protect access to shared data, especially in functions
-        that do little more than read or write such data, for example:
-        
-            lock = ctypes.c_int(0)
-            def write(cs, frames, signal):
-                cs.spinLock(ctypes.byref(lock))
-                for frame in range(frames) :
-                    global_buffer[frame] += signal[frame];
-                cs.spinUnlock(ctypes.byref(lock))
-        """
-        libcsound.csoundSpinLock(spinlock)
-    
-    def csoundSpinUnlock(spinlock):
-        """Unlock the specified spinlock ; (see spinlock())."""
-        libcsound.csoundSpinUnLock(spinlock)
-
-#Miscellaneous Functions
-def csoundRunCommand(args, noWait):
-    """Runs an external command with the arguments specified in list 'args'.
-    
-    args[0] is the name of the program to execute (if not a full path
-    file name, it is searched in the directories defined by the PATH
-    environment variable).
-    If 'noWait' is False, the function waits until the external program
-    finishes, otherwise it returns immediately. In the first case, a
-    non-negative return value is the exit status of the command (0 to
-    255), otherwise it is the PID of the newly created process.
-    On error, a negative value is returned.
-    """
-    n = len(args)
-    argv = (POINTER(c_char_p) * (n+1))()
-    for i in range(n):
-        v = cstring(args[i])
-        argv[i] = cast(pointer(create_string_buffer(v)), POINTER(c_char_p))
-    argv[n] = None
-    return libcsound.csoundRunCommand(cast(argv, POINTER(c_char_p)), c_int(noWait))
-
-def csoundInitTimerStruct(timerStruct):
-    """Initialize a timer structure."""
-    libcsound.csoundInitTimerStruct(byref(timerStruct))
-
-def csoundGetRealTime(timerStruct):
-    """Return the elapsed real time (in seconds).
-    
-    The time is measured since the specified timer structure was initialised.
-    """
-    return libcsound.csoundGetRealTime(byref(timerStruct))
-
-def csoundGetCPUTime(timerStruct):
-    """Return the elapsed CPU time (in seconds).
-    
-    The time is measured since the specified timer structure was initialised.
-    """
-    return libcsound.csoundGetCPUTime(byref(timerStruct))
-
-def csoundGetRandomSeedFromTime():
-    """Return a 32-bit unsigned integer to be used as seed from current time."""
-    return libcsound.csoundGetRandomSeedFromTime()
-
-def csoundSetLanguage(lang_code):
-    """Set language to 'lang_code'.
-    
-    'lang_code' can be for example CSLANGUAGE_ENGLISH_UK or
-    CSLANGUAGE_FRENCH or many others, (see n_getstr.h for the list of
-    languages). This affects all Csound instances running in the address
-    space of the current process. The special language code
-    CSLANGUAGE_DEFAULT can be used to disable translation of messages and
-    free all memory allocated by a previous call to setLanguage().
-    setLanguage() loads all files for the selected language
-    from the directory specified by the CSSTRNGS environment
-    variable.
-    """
-    libcsound.csoundSetLanguage(lang_code)
-
-def csoundGetEnv(csound, name):
-    """Get the value of environment variable 'name'.
-    
-    The searching order is: local environment of 'csound' (if not None),
-    variables set with setGlobalEnv(), and system environment variables.
-    If 'csound' is not None, should be called after Csound.compile_().
-    Return value is None if the variable is not set.
-    """
-    ret = libcsound.csoundGetEnv(csound, cstring(name))
-    if (ret):
-        return pstring(ret)
-    return None
-
-def csoundSetGlobalEnv(name, value):
-    """Set the global value of environment variable 'name' to 'value'.
-    
-    The variable is deleted if 'value' is None. It is not safe to call this
-    function while any Csound instances are active.
-    Returns zero on success.
-    """
-    return libcsound.csoundSetGlobalEnv(cstring(name), cstring(value))
-
-def csoundRand31(seed):
-    """Simple linear congruential random number generator.
-    
-        seed = seed * 742938285 % 2147483647
-    the initial value of seed must be in the range 1 to 2147483646.
-    Return the next number from the pseudo-random sequence,
-    in the range 1 to 2147483646.
-    """
-    n = c_int(seed)
-    return libcsound.csoundRand31(byref(n))
-
-def csoundSeedRandMT(initKey):
-    """Initialize Mersenne Twister (MT19937) random number generator.
-    
-    initKey can be a single int, a list of int, or an ndarray of int. Those int
-    values are converted to unsigned 32 bit values and used for seeding.
-    Return a CsoundRandMTState stuct to be used by csoundRandMT().
-    """
-    state = CsoundRandMTState()
-    if type(initKey) == int:
-        if initKey < 0:
-            initKey = -initKey
-        libcsound.csoundSeedRandMT(byref(state), None, c_uint32(initKey))
-    elif type(initKey) == list or type(initKey) == np.ndarray:
-        n = len(initKey)
-        lst = (c_uint32 * n)()
-        for i in range(n):
-            k = initKey[i]
-            if k < 0 :
-                k = -k
-            lst[i] = c_uint32(k)
-        p = pointer(lst)
-        p = cast(p, POINTER(c_uint32))
-        libcsound.csoundSeedRandMT(byref(state), p, c_uint32(len(lst)))
-    return state
-
-def csoundRandMT(state):
-    """Return next random number from MT19937 generator.
-    
-    The PRNG must be initialized first by calling csoundSeedRandMT().
-    """
-    return libcsound.csoundRandMT(byref(state))
-
-def csoundOpenLibrary(libraryPath):
-    """Platform-independent function to load a shared library."""
-    ptr = POINTER(c_int)()
-    library = cast(ptr, c_void_p)
-    ret = libcsound.csoundOpenLibrary(byref(library), cstring(libraryPath))
-    return ret, library
-
-def csoundCloseLibrary(library):
-    """Platform-independent function to unload a shared library."""
-    libcsound.csoundCloseLibrary(library)
-
-def csoundGetLibrarySymbol(library, symbolName):
-    """Platform-independent function to get a symbol address in a shared library."""
-    return libcsound.csoundGetLibrarySymbol(library, cstring(symbolName))
 
 
 class Csound:
@@ -967,6 +641,14 @@ class Csound:
         if not self.fromPointer and libcsound:
             libcsound.csoundDestroy(self.cs)
 
+    def version(self):
+        """Returns the version number times 1000 (5.00.0 = 5000)."""
+        return libcsound.csoundGetVersion()
+    
+    def APIVersion(self):
+        """Returns the API version number times 100 (1.00 = 100)."""
+        return libcsound.csoundGetAPIVersion()
+    
     #Performance
     def parseOrc(self, orc):
         """Parse the given orchestra from an ASCII string into a TREE.
@@ -1192,6 +874,10 @@ class Csound:
     def currentTimeSamples(self):
         """Return the current performance time in samples."""
         return libcsound.csoundGetCurrentTimeSamples(self.cs)
+    
+    def sizeOfMYFLT(self):
+        """Return the size of MYFLT in bytes."""
+        return libcsound.csoundGetSizeOfMYFLT()
     
     def hostData(self):
         """Return host data."""
@@ -2187,20 +1873,270 @@ class Csound:
         """
         libcsound.csoundSetYieldCallback(self.cs, YIELDFUNC(function))
 
+    def createThread(self, function, userdata):
+        """Create and start a new thread of execution.
+        
+        Return an opaque pointer that represents the thread on success,
+        or None for failure.
+        The userdata pointer is passed to the thread routine.
+        """
+        ret = libcsound.csoundCreateThread(THREADFUNC(function), py_object(userdata))
+        if (ret):
+            return ret
+        return None
+    
+    def currentThreadId(self):
+        """Return the ID of the currently executing thread, or None for failure.
+        
+        NOTE: The return value can be used as a pointer
+        to a thread object, but it should not be compared
+        as a pointer. The pointed to values should be compared,
+        and the user must free the pointer after use.
+        """
+        ret = libcsound.csoundGetCurrentThreadId()
+        if (ret):
+            return ret
+        return None
+    
+    def joinThread(self, thread):
+        """Wait until the indicated thread's routine has finished.
+        
+        Return the value returned by the thread routine.
+        """
+        return libcsound.csoundJoinThread(thread)
+    
+    def createThreadLock(self):
+        """Create and return a monitor object, or None if not successful.
+        
+        The object is initially in signaled (notified) state.
+        """
+        ret = libcsound.csoundCreateThreadLock()
+        if (ret):
+            return ret
+        return None
+    
+    def waitThreadLock(self, lock, milliseconds):
+        """Wait on the indicated monitor object for the indicated period.
+        
+        The function returns either when the monitor object is notified,
+        or when the period has elapsed, whichever is sooner; in the first case,
+        zero is returned.
+        If 'milliseconds' is zero and the object is not notified, the function
+        will return immediately with a non-zero status.
+        """
+        return libcsound.csoundWaitThreadLock(lock, c_uint(milliseconds))
+    
+    def waitThreadLockNoTimeout(self, lock):
+        """Wait on the indicated monitor object until it is notified.
+        
+        This function is similar to waitThreadLock() with an infinite
+        wait time, but may be more efficient.
+        """
+        libcsound.csoundWaitThreadLockNoTimeout(lock)
+    
+    def notifyThreadLock(self, lock):
+        """Notify the indicated monitor object."""
+        libcsound.csoundNotifyThreadLock(lock)
+        
+    def destroyThreadLock(self, lock):
+        """Destroy the indicated monitor object."""
+        libcsound.csoundDestroyThreadLock(lock)
+        
+    def createMutex(self, isRecursive):
+        """Create and return a mutex object, or None if not successful.
+        
+        Mutexes can be faster than the more general purpose monitor objects
+        returned by createThreadLock() on some platforms, and can also
+        be recursive, but the result of unlocking a mutex that is owned by
+        another thread or is not locked is undefined.
+        If 'isRecursive' True, the mutex can be re-locked multiple
+        times by the same thread, requiring an equal number of unlock calls;
+        otherwise, attempting to re-lock the mutex results in undefined
+        behavior.
+        Note: the handles returned by createThreadLock() and
+        createMutex() are not compatible.
+        """
+        ret = libcsound.csoundCreateMutex(c_int(isRecursive))
+        if ret:
+            return ret
+        return None
+    
+    def lockMutex(self, mutex):
+        """Acquire the indicated mutex object.
+        
+        If it is already in use by another thread, the function waits until
+        the mutex is released by the other thread.
+        """
+        libcsound.csoundLockMutex(mutex)
+    
+    def lockMutexNoWait(self, mutex):
+        """Acquire the indicated mutex object.
+        
+        Returns zero, unless it is already in use by another thread, in which
+        case a non-zero value is returned immediately, rather than waiting
+        until the mutex becomes available.
+        Note: this function may be unimplemented on Windows.
+        """
+        return libcsound.csoundLockMutexNoWait(mutex)
+    
+    def unlockMutex(self, mutex):
+        """Release the indicated mutex object.
+        
+        The mutex should be owned by the current thread, otherwise the
+        operation of this function is undefined. A recursive mutex needs
+        to be unlocked as many times as it was locked previously.
+        """
+        libcsound.csoundUnlockMutex(mutex)
+    
+    def destroyMutex(self, mutex):
+        """Destroy the indicated mutex object.
+        
+        Destroying a mutex that is currently owned by a thread results
+        in undefined behavior.
+        """
+        libcsound.csoundDestroyMutex(mutex)
+    
+    def createBarrier(self, max_):
+        """Create a Thread Barrier.
+        
+        Max value parameter should be equal to the number of child threads
+        using the barrier plus one for the master thread.
+        """
+        ret = libcsound.csoundCreateBarrier(c_uint(max_))
+        if (ret):
+            return ret
+        return None
+    
+    def destroyBarrier(self, barrier):
+        """Destroy a Thread Barrier."""
+        return libcsound.csoundDestroyBarrier(barrier)
+    
+    def waitBarrier(self, barrier):
+        """Wait on the thread barrier."""
+        return libcsound.csoundWaitBarrier(barrier)
+    
+    def sleep(self, milliseconds):
+        """Wait for at least the specified number of milliseconds.
+        
+        It yields the CPU to other threads.
+        """
+        libcsound.csoundSleep(c_uint(milliseconds))
+    
+    if (hasSpinLock):
+        def spinLock(self, spinlock):
+            """Lock the specified spinlock.
+            
+            If the spinlock is not locked, lock it and return;
+            if is is locked, wait until it is unlocked, then lock it and return.
+            Uses atomic compare and swap operations that are safe across processors
+            and safe for out of order operations,
+            and which are more efficient than operating system locks.
+            Use spinlocks to protect access to shared data, especially in functions
+            that do little more than read or write such data, for example:
+            
+                lock = ctypes.c_int(0)
+                def write(cs, frames, signal):
+                    cs.spinLock(ctypes.byref(lock))
+                    for frame in range(frames) :
+                        global_buffer[frame] += signal[frame];
+                    cs.spinUnlock(ctypes.byref(lock))
+            """
+            libcsound.csoundSpinLock(spinlock)
+        
+        def spinUnlock(self, spinlock):
+            """Unlock the specified spinlock ; (see spinlock())."""
+            libcsound.csoundSpinUnLock(spinlock)
+    else:
+        def spinLock(self, spinlock):
+            pass
+        
+        def spinUnlock(self, spinlock):
+            pass
+    
     #Miscellaneous Functions
-    def env(self, name):
+    def runCommand(self, args, noWait):
+        """Runs an external command with the arguments specified in list 'args'.
+        
+        args[0] is the name of the program to execute (if not a full path
+        file name, it is searched in the directories defined by the PATH
+        environment variable).
+        If 'noWait' is False, the function waits until the external program
+        finishes, otherwise it returns immediately. In the first case, a
+        non-negative return value is the exit status of the command (0 to
+        255), otherwise it is the PID of the newly created process.
+        On error, a negative value is returned.
+        """
+        n = len(args)
+        argv = (POINTER(c_char_p) * (n+1))()
+        for i in range(n):
+            v = cstring(args[i])
+            argv[i] = cast(pointer(create_string_buffer(v)), POINTER(c_char_p))
+        argv[n] = None
+        return libcsound.csoundRunCommand(cast(argv, POINTER(c_char_p)), c_int(noWait))
+    
+    def initTimerStruct(self, timerStruct):
+        """Initialize a timer structure."""
+        libcsound.csoundInitTimerStruct(byref(timerStruct))
+    
+    def realTime(self, timerStruct):
+        """Return the elapsed real time (in seconds).
+        
+        The time is measured since the specified timer structure was initialised.
+        """
+        return libcsound.csoundGetRealTime(byref(timerStruct))
+    
+    def CPUTime(self, timerStruct):
+        """Return the elapsed CPU time (in seconds).
+        
+        The time is measured since the specified timer structure was initialised.
+        """
+        return libcsound.csoundGetCPUTime(byref(timerStruct))
+    
+    def randomSeedFromTime(self):
+        """Return a 32-bit unsigned integer to be used as seed from current time."""
+        return libcsound.csoundGetRandomSeedFromTime()
+    
+    def setLanguage(self, lang_code):
+        """Set language to 'lang_code'.
+        
+        'lang_code' can be for example CSLANGUAGE_ENGLISH_UK or
+        CSLANGUAGE_FRENCH or many others, (see n_getstr.h for the list of
+        languages). This affects all Csound instances running in the address
+        space of the current process. The special language code
+        CSLANGUAGE_DEFAULT can be used to disable translation of messages and
+        free all memory allocated by a previous call to setLanguage().
+        setLanguage() loads all files for the selected language
+        from the directory specified by the CSSTRNGS environment
+        variable.
+        """
+        libcsound.csoundSetLanguage(lang_code)
+    
+    def env(self, name, withCsoundInstance = True):
         """Get the value of environment variable 'name'.
         
-        The searching order is: local environment of 'csound', variables set
-        with setGlobalEnv(), and system environment variables. Should be called
-        after compile_().
+        The searching order is: local environment of 'csound' (if
+        'withCsoundInstance' is True), variables set with setGlobalEnv(),
+        and system environment variables. If 'withCsoundInstance' is True,
+        should be called after compile_().
         Return value is None if the variable is not set.
         """
-        ret = libcsound.csoundGetEnv(self.cs, cstring(name))
+        if withCsoundInstance:
+            ret = libcsound.csoundGetEnv(self.cs, cstring(name))
+        else:
+            ret = libcsound.csoundGetEnv(None, cstring(name))
         if (ret):
             return pstring(ret)
         return None
 
+    def setGlobalEnv(self, name, value):
+        """Set the global value of environment variable 'name' to 'value'.
+        
+        The variable is deleted if 'value' is None. It is not safe to call this
+        function while any Csound instances are active.
+        Returns zero on success.
+        """
+        return libcsound.csoundSetGlobalEnv(cstring(name), cstring(value))
+    
     def createGlobalVariable(self, name, nbytes):
         """Allocate nbytes bytes of memory.
         
@@ -2276,6 +2212,49 @@ class Csound:
             return pstring(ptr)
         return None
     
+    def rand31(self, seed):
+        """Simple linear congruential random number generator.
+        
+            seed = seed * 742938285 % 2147483647
+        the initial value of seed must be in the range 1 to 2147483646.
+        Return the next number from the pseudo-random sequence,
+        in the range 1 to 2147483646.
+        """
+        n = c_int(seed)
+        return libcsound.csoundRand31(byref(n))
+    
+    def seedRandMT(self, initKey):
+        """Initialize Mersenne Twister (MT19937) random number generator.
+        
+        initKey can be a single int, a list of int, or an ndarray of int. Those int
+        values are converted to unsigned 32 bit values and used for seeding.
+        Return a CsoundRandMTState stuct to be used by csoundRandMT().
+        """
+        state = CsoundRandMTState()
+        if type(initKey) == int:
+            if initKey < 0:
+                initKey = -initKey
+            libcsound.csoundSeedRandMT(byref(state), None, c_uint32(initKey))
+        elif type(initKey) == list or type(initKey) == np.ndarray:
+            n = len(initKey)
+            lst = (c_uint32 * n)()
+            for i in range(n):
+                k = initKey[i]
+                if k < 0 :
+                    k = -k
+                lst[i] = c_uint32(k)
+            p = pointer(lst)
+            p = cast(p, POINTER(c_uint32))
+            libcsound.csoundSeedRandMT(byref(state), p, c_uint32(len(lst)))
+        return state
+    
+    def randMT(self, state):
+        """Return next random number from MT19937 generator.
+        
+        The PRNG must be initialized first by calling csoundSeedRandMT().
+        """
+        return libcsound.csoundRandMT(byref(state))
+    
     def createCircularBuffer(self, numelem, elemsize):
         """Create circular buffer with numelem number of elements.
         
@@ -2312,7 +2291,7 @@ class Csound:
         ptr = out.ctypes.data_as(c_void_p)
         return libcsound.csoundPeekCircularBuffer(self.cs, circularBuffer, ptr, items)
     
-    def writeToCircularBuffer(self, circularBuffer, in_, items):
+    def writeCircularBuffer(self, circularBuffer, in_, items):
         """Write to circular buffer.
         
             circular_buffer - pointer to an existing circular buffer
@@ -2338,6 +2317,21 @@ class Csound:
     def destroyCircularBuffer(self, circularBuffer):
         """Free circular buffer."""
         libcsound.csoundDestroyCircularBuffer(self.cs, circularBuffer)
+
+    def openLibrary(self, libraryPath):
+        """Platform-independent function to load a shared library."""
+        ptr = POINTER(c_int)()
+        library = cast(ptr, c_void_p)
+        ret = libcsound.csoundOpenLibrary(byref(library), cstring(libraryPath))
+        return ret, library
+    
+    def closeLibrary(self, library):
+        """Platform-independent function to unload a shared library."""
+        libcsound.csoundCloseLibrary(library)
+    
+    def getLibrarySymbol(self, library, symbolName):
+        """Platform-independent function to get a symbol address in a shared library."""
+        return libcsound.csoundGetLibrarySymbol(library, cstring(symbolName))
 
 
 if sys.platform.startswith('linux'):

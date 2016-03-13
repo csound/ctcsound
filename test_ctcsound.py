@@ -98,7 +98,7 @@ class TestCsoundPerformanceThread(unittest.TestCase):
     def test_scoreEvent(self):
         self.assertEqual(self.cs.tableLength(1), -1)
         self.pt.scoreEvent(False, 'f', (1, 0, 4096, 10, 1))
-        ctcsound.csoundSleep(1000)
+        self.cs.sleep(1000)
         self.assertEqual(self.cs.tableLength(1), 4096)
 
 if __name__ == '__main__':
