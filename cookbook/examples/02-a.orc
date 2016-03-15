@@ -10,7 +10,7 @@ icps      =         cpspch(p5)
 irise     =         p6
 idec      =         p7
 ipan      =         p8
-          print     icps
+
 kenv      linen     iamp, irise, idur, idec
 kenv      =         kenv*kenv
 asig      poscil    kenv, icps
