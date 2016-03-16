@@ -3,7 +3,7 @@ Recipes for using the ctcsound Python interface to the Csound API. Each recipe
 is presented in a [Jupyter notebook](http://jupyter.org/).
 
 The easiest way to get Jupyter working is to install [Anaconda](https://www.continuum.io/downloads) with the latest  
-Python version. Anaconda includes Python and a bunch of numerical computing  
+Python 3.x version. Anaconda includes Python and a bunch of numerical computing  
 modules like numpy, matplotlib, scipy, etc. Once Anaconda is installed on your  
 system, you can add an environment for Python2.7 with the following commands:
 
