@@ -2341,9 +2341,9 @@ class Csound:
 if sys.platform.startswith('linux'):
     libcspt = CDLL("libcsnd6.so")
 elif sys.platform.startswith('win'):
-    libcsound = cdll.csnd6
+    libcspt = cdll.csnd6
 elif sys.platform.startswith('darwin'):
-    libcsound = CDLL("CsoundLib64.framework/Csnd6")
+    libcspt = CDLL("CsoundLib64.framework/Csnd6")
 else:
     sys.exit("Don't know your system! Exiting...")
 
