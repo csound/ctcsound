@@ -2343,7 +2343,7 @@ if sys.platform.startswith('linux'):
 elif sys.platform.startswith('win'):
     libcspt = cdll.csnd6
 elif sys.platform.startswith('darwin'):
-    libcspt = CDLL("CsoundLib64.framework/Csnd6")
+    libcspt = CDLL("libcsnd6.6.0.dylib")
 else:
     sys.exit("Don't know your system! Exiting...")
 
