@@ -14,10 +14,3 @@ python -m ipykernel install --user
 ```
 
 You'll then have kernels for Python 2 and 3 in Jupyter.
-
-Jupyter works well with Google Chrome. The command to launch Jupyter with  
-Google Chrome is:  
-
-```
-jupyter notebook --browser=google-chrome  
-```
