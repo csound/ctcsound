@@ -153,6 +153,9 @@ def runOrcSco(orcName, scoName):
     One can store an orc in the user namespace with the %%orc magic, and
     a sco with the %%sco magic as well.
     """
+    if slots[0] == None:
+        slots[0] = ctcsound.Csound()
+    cs = slots[0]
     ip = get_ipython()
     orc = ip.user_ns["__orc"][orcName]
     ret = cs.compileOrc(orc)
@@ -299,16 +302,23 @@ class ICsound(ctcsound.Csound):
             self.cleanup()
     
     def sendScore(self, score):
+        """Send score events to the engine.
+        
+        If the startClient method had been called previously, the events
+        will be sent to a server as UDP packets instead.
+        """
         if self._clientAddr:
             self._sendToServer('scoreline_i {{' + score + '}}\n')
             return
         self._csPerf.inputMessage(score)
         self._flushMessages()
     
-    def scoreEvent(self, eventType, pfields, absp2mode=False):
-        self._csPerf.scoreEvent(absp2mode, eventType, pfields)
-    
     def sendCode(self, code):
+        """Send orchestra code to the engine.
+        
+        If the startClient method had been called previously, the code
+        will be sent to a server as UDP packets instead.
+        """
         if self._clientAddr:
             self._sendToServer(code)
             return
@@ -323,12 +333,18 @@ class ICsound(ctcsound.Csound):
             print(errorText)
     
     def makeTable(self, num, size, gen, *args):
+        """Create a function table for this engine."""
         data = 'gitemp_ ftgen {}, 0, {}, {}, '.format(num, size, gen)
         data += ', '.join(map(str, list(args)))
         self._debugPrint(data)
         self.sendCode(data)
     
     def fillTable(self, num, arr):
+        """Fill a table with GEN2 using the data in arr.
+        
+        If the table did not exist, it will be created. If the table existed
+        but had the wrong size, it will be resized.
+        """
         if type(arr) != np.ndarray and type(arr) != list and type(arr) != tuple:
             raise TypeError("Argument is not array, list, or tuple")
         if type(arr) == np.ndarray and arr.ndim > 1:
@@ -356,6 +372,7 @@ class ICsound(ctcsound.Csound):
         ctypes.memmove(dest, src, p.size*self._myfltSize)
     
     def plotTable(self, num, reuse=False):
+        """Plot a table using matplotlib with predefined styles."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
@@ -375,30 +392,35 @@ class ICsound(ctcsound.Csound):
         xlim(0, table.size)
     
     def setChannel(self, name, value):
+        """Set a value on a control channel."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
         self.setControlChannel(name, value)
     
     def channel(self, name):
+        """Read a value from a control channel."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
         return self.controlChannel(name)
     
     def startRecord(self, fileName, sampleBits=16, numBufs=4):
+        """Start recording the audio output in an audio file."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
         return self._csPerf.record(fileName, sampleBits, numBufs)
     
     def stopRecord(self):
+        """Stop the recording of the audio output in an audio file."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
         return self._csPerf.stopRecord()
     
     def printLog(self):
+        """Display the messages in the csound message buffer."""
         self._flushMessages()
         if self._clientAddr:
             print("Operation not supported for client interface")
@@ -406,6 +428,7 @@ class ICsound(ctcsound.Csound):
         print(self._log)
     
     def clearLog(self):
+        """Delete the messages in the csound message buffer."""
         self._flushMessages()
         self._log = ''
     
