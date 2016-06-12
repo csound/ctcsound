@@ -36,6 +36,7 @@ slots = [None for i in range(maxSlotNum+1)]
 
 @magics_class
 class CsoundMagics(Magics):
+    """Implement magic commands for Csound."""
     def __init__(self, shell):
         Magics.__init__(self, shell)
         ip = get_ipython()
@@ -48,6 +49,18 @@ class CsoundMagics(Magics):
     
     @line_cell_magic
     def csound(self, line, cell=None):
+        """%csound and %%csound magics.
+        
+        %csound n, where n < 0, erases slot#abs(n) bound to an ICsound engine.
+        It is normally followed by the 'del ics' command.
+        %csound 0 erases slot#0 reserved to an ctcsound.Csound() instance used
+        by the runCsd and runOrcSco functions. Il also deletes this instance.
+        A call to runCsd or runOrcCsd will automatically create an
+        ctcsound.Csound instance bound to slot#0.
+        
+        %%csound n where n is in [1 .. maxSlotNum] sends Csound code to the
+        ICsound engine bound to slot#n. If n is omitted, slot#1 is used.
+        """
         global slots, maxSlotNum
         # line magic
         if cell is None:
@@ -58,11 +71,14 @@ class CsoundMagics(Magics):
                     return
                 slot = -slot
                 if slot <= maxSlotNum and slots[slot]:
-                    del slots[slot]
+                    if slot == 0:
+                        del slots[slot]
+                    else:
+                        slots[slot] = None
                     print("Erasing slot#: {}".format(slot))
                     return
                 print("No active ICsound engine at slot#: {}".format(slot))
-                return
+                return1 
             except ValueError as e:
                 print("Not a valid slot#: ", e.args[0])
                 return
@@ -87,21 +103,21 @@ class CsoundMagics(Magics):
     
     @cell_magic
     def csd(self, line, cell):
-        """Store the cell in data as a csd"""
+        """Store the cell in user namespace as a csd under the name specified."""
         if line == '':
             return "Usage: %%csd name"
         self.csd[line] = cell
 
     @cell_magic
     def orc(self, line, cell):
-        """Store the cell in data as an orc"""
+        """Store the cell in user namespace as an orc under the name specified."""
         if line == '':
             return "Usage: %%orc name"
         self.orc[line] = cell
 
     @cell_magic
     def sco(self, line, cell):
-        """Store the cell in data as a sco"""
+        """Store the cell in user namespace as a sco under the name specified."""
         if line == '':
             return "Usage: %%sco name"
         self.sco[line] = cell
@@ -113,6 +129,10 @@ from pylab import *
 import socket
 
 def runCsd(csdName):
+    """Run a csd stored in the user namespace.
+    
+    One can store a csd in the user name space with the %%csd magic.
+    """
     if slots[0] == None:
         slots[0] = ctcsound.Csound()
     cs = slots[0]
@@ -128,9 +148,11 @@ def runCsd(csdName):
         return 'Error'
 
 def runOrcSco(orcName, scoName):
-    if slots[0] == None:
-        slots[0] = ctcsound.Csound()
-    cs = slots[0]
+    """Run an orc and sco stored in the user namespace.
+    
+    One can store an orc in the user namespace with the %%orc magic, and
+    a sco with the %%sco magic as well.
+    """
     ip = get_ipython()
     orc = ip.user_ns["__orc"][orcName]
     ret = cs.compileOrc(orc)
@@ -155,8 +177,15 @@ class SlotError(Exception):
 
 
 class ICsound(ctcsound.Csound):
+    """Implement Andrés Cabrera's icsound module in csoundmagics.
+    
+    An ICsound object is a child of a ctcsound.Csound object. It is bound
+    to a slot number. This slot number can be used to specify this ICsound
+    object when calling a %csound or a %%csound magic command.
+    """
     def __init__(self, sr=48000, ksmps=100, nchnls=2, zerodbfs=1.0, dac='dac',
                  adc='', port=0, bufferSize=0):
+        """Create an instance of ICsound."""
         global slots, maxSlotNum
         self.slotNum = 0
         for i in range(maxSlotNum):
@@ -184,6 +213,7 @@ class ICsound(ctcsound.Csound):
             slots[self.slotNum] = None
     
     def listInterfaces(self, output=True):
+        """List the audio devices available on the system."""
         lst = self.audioDevList(output)
         i = 1
         for dev in lst:
@@ -191,6 +221,11 @@ class ICsound(ctcsound.Csound):
             i += 1
     
     def startClient(self, addr='127.0.0.1', port=12894):
+        """Start the client feature of this engine.
+        
+        sendScore and sendCode method will send their data to the
+        IP address and port specified.
+        """
         self._clientAddr = addr
         self._clientPort = port
     
@@ -244,6 +279,11 @@ class ICsound(ctcsound.Csound):
             print("Error starting server. Maybe port is in use?")
     
     def stopEngine(self, reset=True):
+        """Stop the engine.
+        
+        The engine can be restarted with the startEngine method, eventually
+        with new arguments.
+        """
         if not self._csPerf:
             print("Engine is not running")
             return
