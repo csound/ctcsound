@@ -1601,7 +1601,8 @@ class Csound:
 
     def setInputChannelCallback(self, function):
         """Set the function to call whenever the invalue opcode is used."""
-        libcsound.csoundSetInputChannelCallback(self.cs, CHANNELFUNC(function))
+        self.inputChannelCallback = CHANNELFUNC(function)
+        libcsound.csoundSetInputChannelCallback(self.cs, self.inputChannelCallback)
     
     def setOutputChannelCallback(self, function):
         """Set the function to call whenever the outvalue opcode is used."""
