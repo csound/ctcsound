@@ -18,3 +18,8 @@ if not os.path.exists(dest):
     os.mkdir(dest)
 shutil.copy("csound.js", dest)
 
+# Copy custom.js in jupyter dir
+dest = os.path.join(notebook.extensions.jupyter_config_dir(), "custom")
+if not os.path.exists(dest):
+    os.mkdir(dest)
+shutil.copy("custom.js", dest)
