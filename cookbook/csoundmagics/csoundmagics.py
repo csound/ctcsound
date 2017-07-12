@@ -453,6 +453,4 @@ def load_ipython_extension(ip):
     ip.user_ns['runCsd'] = runCsd
     ip.user_ns['runOrcSco'] = runOrcSco
     ip.user_ns['ICsound'] = ICsound
-    js = "IPython.CodeCell.config_defaults.highlight_modes['magic_csound'] = {'reg':[/^%%csound/, /^%%csd/, /^%%orc/, /^%%sco/]};"
-    display_javascript(js, raw=True)
 
