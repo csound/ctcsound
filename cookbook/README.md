@@ -16,7 +16,7 @@ python -m ipykernel install --user
 
 You'll then have kernels for Python 2 and 3 in Jupyter.  
 
-Linux users might prefer to install jupyter using pip instead of Anaconda.
+Linux users might prefer to install Jupyter using pip instead of Anaconda.
 For example on Ubuntu 16.04 LTS, Python 2.7.12 and Python 3.5.2 are installed
 by default. Python 2.7.12 is launched with the command ```python``` or with
 the command ```python2```, while Python 3.5.2 is launched with the command
