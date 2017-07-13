@@ -3,13 +3,13 @@
 Copyright (c) François Pinot, May 2016
 """
 
-from IPython.paths import get_ipython_dir
 import notebook
 import os.path
+import site
 import shutil
 
-# Copy csoundmagics in ipython dir
-dest = os.path.join(get_ipython_dir(), "extensions")
+# Copy csoundmagics in user site-packages dir
+dest = site.getusersitepackages()
 shutil.copy("csoundmagics.py", dest)
 
 # Copy csound mode in codemirror
