@@ -147,11 +147,35 @@ def runCsd(csdName):
     else:
         return 'Error'
 
-def runOrcSco(orcName, scoName):
-    """Run an orc and sco stored in the user namespace.
+def getCsd(csdName):
+    """Get a csd stored in the user namespace.
     
-    One can store an orc in the user namespace with the %%orc magic, and
-    a sco with the %%sco magic as well.
+    One can store a csd in the user name space with the %%csd magic.
+    """
+    ip = get_ipython()
+    return ip.user_ns["__csd"][csdName]
+
+def getOrc(orcName):
+    """Get an orchestra stored in the user namespace.
+    
+    One can store an orchestra in the user name space with the %%orc magic.
+    """
+    ip = get_ipython()
+    return ip.user_ns["__orc"][orcName]
+
+def getSco(scoName):
+    """Get a score stored in the user namespace.
+    
+    One can store a score in the user name space with the %%sco magic.
+    """
+    ip = get_ipython()
+    return ip.user_ns["__sco"][scoName]
+
+def runOrcSco(orcName, scoName):
+    """Run an orchestra and score stored in the user namespace.
+    
+    One can store an orchestra in the user namespace with the %%orc magic, and
+    a score with the %%sco magic as well.
     """
     if slots[0] == None:
         slots[0] = ctcsound.Csound()
@@ -451,6 +475,8 @@ from IPython.core.display import display_javascript
 def load_ipython_extension(ip):
     ip.magics_manager.register(CsoundMagics)
     ip.user_ns['runCsd'] = runCsd
+    ip.user_ns['getCsd'] = getCsd
+    ip.user_ns['getOrc'] = getOrc
+    ip.user_ns['getSco'] = getSco
     ip.user_ns['runOrcSco'] = runOrcSco
     ip.user_ns['ICsound'] = ICsound
-
