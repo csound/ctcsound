@@ -73,8 +73,7 @@ class CsoundMagics(Magics):
                 if slot <= maxSlotNum and slots[slot]:
                     if slot == 0:
                         del slots[slot]
-                    else:
-                        slots[slot] = None
+                    slots[slot] = None
                     print("Erasing slot#: {}".format(slot))
                     return
                 print("No active ICsound engine at slot#: {}".format(slot))
@@ -128,11 +127,17 @@ import ctypes
 from pylab import *
 import socket
 
+def getCsound():
+    if slots[0] == None:
+        slots[0] = ctcsound.Csound()
+    return slots[0]
+
 def runCsd(csdName):
     """Run a csd stored in the user namespace.
     
     One can store a csd in the user name space with the %%csd magic.
     """
+    global slots, maxSlotNum
     if slots[0] == None:
         slots[0] = ctcsound.Csound()
     cs = slots[0]
@@ -177,6 +182,7 @@ def runOrcSco(orcName, scoName):
     One can store an orchestra in the user namespace with the %%orc magic, and
     a score with the %%sco magic as well.
     """
+    global slots, maxSlotNum
     if slots[0] == None:
         slots[0] = ctcsound.Csound()
     cs = slots[0]
@@ -474,6 +480,7 @@ from IPython.core.display import display_javascript
 
 def load_ipython_extension(ip):
     ip.magics_manager.register(CsoundMagics)
+    ip.user_ns['getCsound'] = getCsound
     ip.user_ns['runCsd'] = runCsd
     ip.user_ns['getCsd'] = getCsd
     ip.user_ns['getOrc'] = getOrc
