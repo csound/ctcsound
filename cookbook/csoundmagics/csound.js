@@ -26,11 +26,12 @@ CodeMirror.defineMode("csound", function(config) {
   
   var atoms = {
     "cggoto":true, "cigoto":true, "ckgoto":true, "cngoto":true, "cogoto":true,
-    "else":true, "elseif":true, "goto":true, "if":true, "igoto":true,
+    "else":true, "elseif":true, "endif":true, "goto":true, "if":true, "igoto":true,
     "iholf":true, "kgoto":true, "loop_ge":true, "loop_gt":true, "loop_le":true,
     "loop_lt":true, "reinit":true, "rigoto":true, "rireturn":true, "then":true,
     "tigoto":true, "timout":true, "tival":true, "until":true, "do":true,
-    "od":true, "while":true, "#define":true, "#include":true, "#undef":true
+    "od":true, "while":true, "#define":true, "#include":true, "#undef":true,
+    "#ifdef":true, "#ifndef":true, "#else":true, "#end":true
   };
   
   var keywords = {
