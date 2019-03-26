@@ -511,6 +511,17 @@ CodeMirror.defineMode("csound", function(config) {
       return "comment";
     }
     
+    if (ch == "/") {
+      if (stream.eat("*")) {
+        state.tokenize = tokenComment;
+        return tokenComment(stream, state);
+      }
+      if (stream.eat("/")) {
+        stream.skipToEnd();
+        return "comment";
+      }
+    }
+
     if (isOperatorChar.test(ch)) {
       if (ch == "<") {
         if (stream.match(/(Cs|\/Cs)\w+>/)) {
@@ -524,6 +535,18 @@ CodeMirror.defineMode("csound", function(config) {
     return null;
   }
   
+  function tokenComment(stream, state) {
+    var maybeEnd = false, ch;
+    while (ch = stream.next()) {
+      if (ch == "/" && maybeEnd) {
+        state.tokenize = tokenBase;
+        break;
+      }
+      maybeEnd = (ch == "*");
+    }
+    return "comment";
+  }
+
   function tokenString(quote) {
     return function(stream, state) {
       var escaped = false, next, end = false;
@@ -544,8 +567,8 @@ CodeMirror.defineMode("csound", function(config) {
   return {
     startState: function(basecolumn) {
       return {
-        tokenize: null,
-        startOfLine: true
+        tokenize: tokenBase,
+        startOfLine: true,
       };
     },
     
@@ -553,10 +576,12 @@ CodeMirror.defineMode("csound", function(config) {
       if (stream.eatSpace()) {
         return null;
       }
-      var style = tokenBase(stream, state);
+      var style = state.tokenize(stream, state);
       return style;
     },
     
+    blockCommentStart: "/*",
+    blockCommentEnd: "*/",
     lineComment: ";"
   };
 });
