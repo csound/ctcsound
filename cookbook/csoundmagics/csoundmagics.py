@@ -407,6 +407,8 @@ class ICsound(ctcsound.Csound):
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
+        if isinstance(num,str):
+            num = int(self.evalCode('return %s' % (num)))
         table = self.table(num)
         if not reuse:
             fix, ax = plt.subplots(figsize=(10, 6))
