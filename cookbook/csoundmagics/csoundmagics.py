@@ -124,7 +124,8 @@ class CsoundMagics(Magics):
 
 import ctcsound
 import ctypes
-from pylab import *
+import numpy as np
+import matplotlib.pyplot as plt
 import socket
 
 def getCsound():
@@ -408,9 +409,9 @@ class ICsound(ctcsound.Csound):
             return
         table = self.table(num)
         if not reuse:
-            fix, ax = subplots(figsize=(10, 6))
+            fix, ax = plt.subplots(figsize=(10, 6))
         else:
-            ax = gca()
+            ax = plt.gca()
         ax.hlines(0, 0, table.size)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
@@ -419,7 +420,7 @@ class ICsound(ctcsound.Csound):
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         ax.plot(table, color='black', lw=2)
-        xlim(0, table.size)
+        plt.xlim(0, table.size)
     
     def setChannel(self, name, value):
         """Set a value on a control channel."""
