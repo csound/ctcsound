@@ -263,7 +263,7 @@ class ICsound(ctcsound.Csound):
         self._clientAddr = addr
         self._clientPort = port
     
-    def startEngine(self, sr=48000, ksmps=100, nchnls=2, zerodbfs=1.0, dac='dac',
+    def startEngine(self, sr=44100, ksmps=32, nchnls=2, zerodbfs=1.0, dac='dac',
                     adc='', port=0, bufferSize=0):
         """Start an ICsound engine.
         
