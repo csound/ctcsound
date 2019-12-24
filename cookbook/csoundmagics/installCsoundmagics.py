@@ -8,8 +8,8 @@ import os.path
 import site
 import shutil
 
-# Copy csoundmagics in user site-packages dir
-dest = site.getusersitepackages()
+# Copy csoundmagics in site-packages dir
+dest = site.getsitepackages()[0]
 shutil.copy("csoundmagics.py", dest)
 
 # Copy csound mode in codemirror
