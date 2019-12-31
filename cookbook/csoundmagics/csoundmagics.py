@@ -217,7 +217,7 @@ class ICsound(ctcsound.Csound):
     to a slot number. This slot number can be used to specify this ICsound
     object when calling a %csound or a %%csound magic command.
     """
-    def __init__(self, sr=48000, ksmps=100, nchnls=2, zerodbfs=1.0, dac='dac',
+    def __init__(self, sr=44100, ksmps=32, nchnls=2, zerodbfs=1.0, dac='dac',
                  adc='', port=0, bufferSize=0):
         """Create an instance of ICsound."""
         global slots, maxSlotNum
