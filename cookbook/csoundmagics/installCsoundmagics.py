@@ -7,7 +7,7 @@ import os.path
 import shutil
 import site
 
-import notebook
+import notebook.extensions
 
 # Copy csoundmagics in site-packages dir
 dest = site.getsitepackages()[0]

@@ -131,7 +131,7 @@ class CsoundMagics(Magics):
 
 
 def getCsound():
-    if slots[0] == None:
+    if slots[0] is None:
         slots[0] = ctcsound.Csound()
     return slots[0]
 
@@ -142,7 +142,7 @@ def runCsd(csdName):
     One can store a csd in the user name space with the %%csd magic.
     """
     global slots, maxSlotNum
-    if slots[0] == None:
+    if slots[0] is None:
         slots[0] = ctcsound.Csound()
     cs = slots[0]
     ip = get_ipython()
@@ -191,7 +191,7 @@ def runOrcSco(orcName, scoName):
     a score with the %%sco magic as well.
     """
     global slots, maxSlotNum
-    if slots[0] == None:
+    if slots[0] is None:
         slots[0] = ctcsound.Csound()
     cs = slots[0]
     ip = get_ipython()
