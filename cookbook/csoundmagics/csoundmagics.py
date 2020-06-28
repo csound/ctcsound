@@ -137,6 +137,7 @@ def getCsound():
         slots[0] = ctcsound.Csound()
     return slots[0]
 
+
 def runCsd(csdName):
     """Run a csd stored in the user namespace.
 
@@ -157,6 +158,7 @@ def runCsd(csdName):
     else:
         return 'Error'
 
+
 def getCsd(csdName):
     """Get a csd stored in the user namespace.
 
@@ -164,6 +166,7 @@ def getCsd(csdName):
     """
     ip = get_ipython()
     return ip.user_ns["__csd"][csdName]
+
 
 def getOrc(orcName):
     """Get an orchestra stored in the user namespace.
@@ -173,6 +176,7 @@ def getOrc(orcName):
     ip = get_ipython()
     return ip.user_ns["__orc"][orcName]
 
+
 def getSco(scoName):
     """Get a score stored in the user namespace.
 
@@ -180,6 +184,7 @@ def getSco(scoName):
     """
     ip = get_ipython()
     return ip.user_ns["__sco"][scoName]
+
 
 def runOrcSco(orcName, scoName):
     """Run an orchestra and score stored in the user namespace.
@@ -210,7 +215,7 @@ class SlotError(Exception):
     def __init__(self, value):
         self.value = value
 
-    def  __str__(self):
+    def __str__(self):
         return repr(self.value)
 
 
@@ -227,8 +232,8 @@ class ICsound(ctcsound.Csound):
         global slots, maxSlotNum
         self.slotNum = 0
         for i in range(maxSlotNum):
-            if not slots[i+1]:
-                self.slotNum = i+1
+            if not slots[i + 1]:
+                self.slotNum = i + 1
                 break
         if self.slotNum == 0:
             raise SlotError("No more slot available for this engine")
@@ -404,14 +409,14 @@ class ICsound(ctcsound.Csound):
             table = self.table(num)
         src = p.ctypes.data_as(ctypes.POINTER(ctcsound.MYFLT))
         dest = table.ctypes.data_as(ctypes.POINTER(ctcsound.MYFLT))
-        ctypes.memmove(dest, src, p.size*self._myfltSize)
+        ctypes.memmove(dest, src, p.size * self._myfltSize)
 
     def plotTable(self, num, reuse=False):
         """Plot a table using matplotlib with predefined styles."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
-        if isinstance(num,str):
+        if isinstance(num, str):
             num = int(self.evalCode('return %s' % (num)))
         table = self.table(num)
         if not reuse:
@@ -422,7 +427,7 @@ class ICsound(ctcsound.Csound):
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['bottom'].set_visible(False)
-        ax.set_xticks(range(0, table.size+1, int(table.size/4)))
+        ax.set_xticks(range(0, table.size + 1, int(table.size / 4)))
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         ax.plot(table, color='black', lw=2)

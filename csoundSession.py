@@ -38,7 +38,7 @@ class CsoundSession(ctcsound.Csound):
             self.csd = None
 
     def startThread(self):
-        if self.compile_("csoundSession", self.csd) == 0 :
+        if self.compile_("csoundSession", self.csd) == 0:
             self.pt = ctcsound.CsoundPerformanceThread(self.cs)
             self.pt.play()
             
@@ -63,11 +63,11 @@ class CsoundSession(ctcsound.Csound):
         """Return the loaded csd filename or None"""
         return self.csd
         
-    def note(self, pfields, absp2mode = 0):
+    def note(self, pfields, absp2mode=0):
         """Send a score note to a csound instrument"""
         return self.pt.scoreEvent(absp2mode, 'i', pfields)
         
-    def scoreEvent(self, eventType, pfields, absp2mode = False):
+    def scoreEvent(self, eventType, pfields, absp2mode=False):
         """Send a score event to csound"""
         self.pt.scoreEvent(absp2mode, eventType, pfields)
 

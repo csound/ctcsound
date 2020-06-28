@@ -3,10 +3,11 @@
 Copyright (c) François Pinot, May 2016
 """
 
-import notebook
 import os.path
-import site
 import shutil
+import site
+
+import notebook
 
 # Copy csoundmagics in site-packages dir
 dest = site.getsitepackages()[0]

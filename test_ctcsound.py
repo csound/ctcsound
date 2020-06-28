@@ -27,7 +27,7 @@ import unittest
 class TestAttributes(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.initialData = {"string": "mydata", "number": 1956.2705, "boolean": True} 
+        self.initialData = {"string": "mydata", "number": 1956.2705, "boolean": True}
         self.cs = ctcsound.Csound(self.initialData)
 
     def test_hostData(self):
@@ -74,7 +74,7 @@ class TestGeneralIO(unittest.TestCase):
         ilen, olen = len(ibuf), len(obuf)
         self.assertEqual(ilen, olen)
         self.cs.performBuffer()
-        self.assertTrue(np.array_equal(obuf, ibuf/3.0))
+        self.assertTrue(np.array_equal(obuf, ibuf / 3.0))
 
 
 class TestCsoundPerformanceThread(unittest.TestCase):
@@ -99,6 +99,7 @@ class TestCsoundPerformanceThread(unittest.TestCase):
         self.pt.scoreEvent(False, 'f', (1, 0, 4096, 10, 1))
         self.cs.sleep(1000)
         self.assertEqual(self.cs.tableLength(1), 4096)
+
 
 if __name__ == '__main__':
     unittest.main()
