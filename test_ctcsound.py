@@ -1,25 +1,24 @@
-'''
-    test_ctcsound.py:
-    
-    Copyright (C) 2016 Francois Pinot
-    
-    This file is part of Csound.
-    
-    This code is free software; you can redistribute it
-    and/or modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
-    
-    Csound is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
-    
-    You should have received a copy of the GNU Lesser General Public
-    License along with Csound; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-    02111-1307 USA
-'''
+# -*- coding: utf-8 -*-
+
+# test_ctcsound.py:
+#
+# Copyright (C) 2016 Francois Pinot
+#
+# This code is free software; you can redistribute it
+# and/or modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# This code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this code; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+# 02111-1307 USA
+#
 
 import ctcsound, numpy as np, ctypes as ct
 import unittest
@@ -30,7 +29,7 @@ class TestAttributes(unittest.TestCase):
     def setUpClass(self):
         self.initialData = {"string": "mydata", "number": 1956.2705, "boolean": True} 
         self.cs = ctcsound.Csound(self.initialData)
-    
+
     def test_hostData(self):
         ret = self.cs.hostData()
         self.assertEqual(self.initialData, ret)
@@ -49,7 +48,7 @@ class TestAttributes(unittest.TestCase):
         self.cs.compile_("csound", "analogSynth01.csd")
         self.assertEqual(96000, self.cs.sr())
         self.assertEqual(9600, self.cs.kr())
-    
+
     def test_params(self):
         p = ctcsound.CsoundParams()
         self.cs.setDebug(True)
@@ -67,7 +66,7 @@ class TestGeneralIO(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.cs = ctcsound.Csound()
-    
+
     def test_inputOutputbuffer(self):
         self.cs.compile_("csound", "bufferInOut.csd")
         ibuf = self.cs.inputBuffer()
@@ -84,7 +83,7 @@ class TestCsoundPerformanceThread(unittest.TestCase):
         self.cs = ctcsound.Csound()
         self.cs.compile_("csoundPerformanceThread", "simple.csd")
         self.pt = ctcsound.CsoundPerformanceThread(self.cs.csound())
-    
+
     @classmethod
     def tearDownClass(self):
         self.pt.stop()

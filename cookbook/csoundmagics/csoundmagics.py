@@ -32,13 +32,13 @@ from IPython.core.getipython import get_ipython
 from IPython.core.magic import Magics, magics_class, cell_magic, line_cell_magic
 
 maxSlotNum = 32
-slots = [None for i in range(maxSlotNum+1)]
+slots = [None for i in range(maxSlotNum + 1)]
 
 @magics_class
 class CsoundMagics(Magics):
     """Implement magic commands for Csound."""
     def __init__(self, shell):
-        Magics.__init__(self, shell)
+    	super(CsoundMagics, self).__init__(shell)
         ip = get_ipython()
         self.csd = {}
         ip.user_ns["__csd"] = self.csd
@@ -46,7 +46,7 @@ class CsoundMagics(Magics):
         ip.user_ns["__orc"] = self.orc
         self.sco = {}
         ip.user_ns["__sco"] = self.sco
-    
+
     @line_cell_magic
     def csound(self, line, cell=None):
         """%csound and %%csound magics.
@@ -68,44 +68,45 @@ class CsoundMagics(Magics):
                 slot = int(line)
                 if slot > 0:
                     print("%csound needs a negative or null slot#")
-                    return
+                    return line
                 slot = -slot
                 if slot <= maxSlotNum and slots[slot]:
                     if slot == 0:
                         del slots[slot]
                     slots[slot] = None
                     print("Erasing slot#: {}".format(slot))
-                    return
+                    return line
                 print("No active ICsound engine at slot#: {}".format(slot))
-                return1 
+                return line 
             except ValueError as e:
                 print("Not a valid slot#: ", e.args[0])
-                return
+                return line
         # cell magic
         if line != '':
             try:
                 slot = int(line)
                 if slot <= 0 or slot > maxSlotNum:
                     print("slot# has to be in [1..{}]".format(maxSlotNum))
-                    return
+                    return line, cell
             except ValueError as e:
                 print("Not a valid slot#: ", e.args[0])
-                return
+                return line, cell
         else:
             slot = 1
         cur_ics = slots[slot]
         if not cur_ics:
             print("No active ICsound engine at slot#: {}".format(slot))
-            return
+            return line, cell
         cur_ics.sendCode(str(cell))
-        return
-    
+        return line, cell
+
     @cell_magic
     def csd(self, line, cell):
         """Store the cell in user namespace as a csd under the name specified."""
         if line == '':
             return "Usage: %%csd name"
         self.csd[line] = cell
+        return line, cell
 
     @cell_magic
     def orc(self, line, cell):
@@ -113,6 +114,7 @@ class CsoundMagics(Magics):
         if line == '':
             return "Usage: %%orc name"
         self.orc[line] = cell
+        return line, cell
 
     @cell_magic
     def sco(self, line, cell):
@@ -120,26 +122,28 @@ class CsoundMagics(Magics):
         if line == '':
             return "Usage: %%sco name"
         self.sco[line] = cell
+        return line, cell
 
 
-import ctcsound
 import ctypes
-import numpy as np
-import matplotlib.pyplot as plt
 import socket
 
+import ctcsound
+import numpy as np
+import matplotlib.pyplot as plt
+
 def getCsound():
-    if slots[0] == None:
+    if slots[0] is None:
         slots[0] = ctcsound.Csound()
     return slots[0]
 
 def runCsd(csdName):
     """Run a csd stored in the user namespace.
-    
+
     One can store a csd in the user name space with the %%csd magic.
     """
     global slots, maxSlotNum
-    if slots[0] == None:
+    if slots[0] is None:
         slots[0] = ctcsound.Csound()
     cs = slots[0]
     ip = get_ipython()
@@ -155,7 +159,7 @@ def runCsd(csdName):
 
 def getCsd(csdName):
     """Get a csd stored in the user namespace.
-    
+
     One can store a csd in the user name space with the %%csd magic.
     """
     ip = get_ipython()
@@ -163,7 +167,7 @@ def getCsd(csdName):
 
 def getOrc(orcName):
     """Get an orchestra stored in the user namespace.
-    
+
     One can store an orchestra in the user name space with the %%orc magic.
     """
     ip = get_ipython()
@@ -171,7 +175,7 @@ def getOrc(orcName):
 
 def getSco(scoName):
     """Get a score stored in the user namespace.
-    
+
     One can store a score in the user name space with the %%sco magic.
     """
     ip = get_ipython()
@@ -179,12 +183,12 @@ def getSco(scoName):
 
 def runOrcSco(orcName, scoName):
     """Run an orchestra and score stored in the user namespace.
-    
+
     One can store an orchestra in the user namespace with the %%orc magic, and
     a score with the %%sco magic as well.
     """
     global slots, maxSlotNum
-    if slots[0] == None:
+    if slots[0] is None:
         slots[0] = ctcsound.Csound()
     cs = slots[0]
     ip = get_ipython()
@@ -205,14 +209,14 @@ def runOrcSco(orcName, scoName):
 class SlotError(Exception):
     def __init__(self, value):
         self.value = value
-        
+
     def  __str__(self):
         return repr(self.value)
 
 
 class ICsound(ctcsound.Csound):
     """Implement Andrés Cabrera's icsound module in csoundmagics.
-    
+
     An ICsound object is a child of a ctcsound.Csound object. It is bound
     to a slot number. This slot number can be used to specify this ICsound
     object when calling a %csound or a %%csound magic command.
@@ -238,14 +242,14 @@ class ICsound(ctcsound.Csound):
         self._clientPort = None
         slots[self.slotNum] = self
         self.startEngine(sr, ksmps, nchnls, zerodbfs, dac, adc, port, bufferSize)
-    
+
     def __del__(self):
         global slots, maxSlotNum
         if self._csPerf:
             self.stopEngine(reset=False)
         if slots[self.slotNum]:
             slots[self.slotNum] = None
-    
+
     def listInterfaces(self, output=True):
         """List the audio devices available on the system."""
         lst = self.audioDevList(output)
@@ -253,7 +257,7 @@ class ICsound(ctcsound.Csound):
         for dev in lst:
             print("{:2d}: {}".format(i, dev))
             i += 1
-    
+
     def startClient(self, addr='127.0.0.1', port=12894):
         """Start the client feature of this engine.
         
@@ -262,7 +266,7 @@ class ICsound(ctcsound.Csound):
         """
         self._clientAddr = addr
         self._clientPort = port
-    
+
     def startEngine(self, sr=44100, ksmps=32, nchnls=2, zerodbfs=1.0, dac='dac',
                     adc='', port=0, bufferSize=0):
         """Start an ICsound engine.
@@ -311,7 +315,7 @@ class ICsound(ctcsound.Csound):
                 print("Listening to port {}".format(port))
         else:
             print("Error starting server. Maybe port is in use?")
-    
+
     def stopEngine(self, reset=True):
         """Stop the engine.
         
@@ -331,7 +335,7 @@ class ICsound(ctcsound.Csound):
             self.reset()
         else:
             self.cleanup()
-    
+
     def sendScore(self, score):
         """Send score events to the engine.
         
@@ -343,7 +347,7 @@ class ICsound(ctcsound.Csound):
             return
         self._csPerf.inputMessage(score)
         self._flushMessages()
-    
+
     def sendCode(self, code):
         """Send orchestra code to the engine.
         
@@ -362,14 +366,14 @@ class ICsound(ctcsound.Csound):
             self.popFirstMessage()
         if ret:
             print(errorText)
-    
+
     def makeTable(self, num, size, gen, *args):
         """Create a function table for this engine."""
         data = 'gitemp_ ftgen {}, 0, {}, {}, '.format(num, size, gen)
         data += ', '.join(map(str, list(args)))
         self._debugPrint(data)
         self.sendCode(data)
-    
+
     def fillTable(self, num, arr):
         """Fill a table with GEN2 using the data in arr.
         
@@ -386,7 +390,7 @@ class ICsound(ctcsound.Csound):
             data = 'gitemp ftgen {}, 0, {}, -2, '.format(num, len(arr)) + data
             self.sendCode(data)
             return
-        
+
         p = np.array(arr).astype(ctcsound.MYFLT)
         table = self.table(num)
         if (type(table) == np.ndarray) and (table.size == p.size):
@@ -401,7 +405,7 @@ class ICsound(ctcsound.Csound):
         src = p.ctypes.data_as(ctypes.POINTER(ctcsound.MYFLT))
         dest = table.ctypes.data_as(ctypes.POINTER(ctcsound.MYFLT))
         ctypes.memmove(dest, src, p.size*self._myfltSize)
-    
+
     def plotTable(self, num, reuse=False):
         """Plot a table using matplotlib with predefined styles."""
         if self._clientAddr:
@@ -423,35 +427,35 @@ class ICsound(ctcsound.Csound):
         ax.yaxis.set_ticks_position('left')
         ax.plot(table, color='black', lw=2)
         plt.xlim(0, table.size)
-    
+
     def setChannel(self, name, value):
         """Set a value on a control channel."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
         self.setControlChannel(name, value)
-    
+
     def channel(self, name):
         """Read a value from a control channel."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
         return self.controlChannel(name)
-    
+
     def startRecord(self, fileName, sampleBits=16, numBufs=4):
         """Start recording the audio output in an audio file."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
         return self._csPerf.record(fileName, sampleBits, numBufs)
-    
+
     def stopRecord(self):
         """Stop the recording of the audio output in an audio file."""
         if self._clientAddr:
             print("Operation not supported for client interface")
             return
         return self._csPerf.stopRecord()
-    
+
     def printLog(self):
         """Display the messages in the csound message buffer."""
         self._flushMessages()
@@ -459,27 +463,25 @@ class ICsound(ctcsound.Csound):
             print("Operation not supported for client interface")
             return
         print(self._log)
-    
+
     def clearLog(self):
         """Delete the messages in the csound message buffer."""
         self._flushMessages()
         self._log = ''
-    
+
     def _flushMessages(self):
         for i in range(self.messageCnt()):
             self._log += self.firstMessage()
             self.popFirstMessage()
-    
+
     def _debugPrint(self, *text):
         if self._verbose:
             print(text)
-    
+
     def _sendToServer(self, message):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
         sock.sendto(ctcsound.cstring(message), (self._clientAddr, self._clientPort))
 
-
-from IPython.core.display import display_javascript
 
 def load_ipython_extension(ip):
     ip.magics_manager.register(CsoundMagics)
