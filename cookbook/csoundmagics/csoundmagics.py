@@ -28,8 +28,14 @@
 # See Francois Pinot's Journal article:
 # http://csounds.com/journal/issue14/realtimeCsoundPython.html
 
+import ctypes
+import socket
+
+import ctcsound
+import matplotlib.pyplot as plt
+import numpy as np
 from IPython.core.getipython import get_ipython
-from IPython.core.magic import Magics, magics_class, cell_magic, line_cell_magic
+from IPython.core.magic import Magics, cell_magic, line_cell_magic, magics_class
 
 maxSlotNum = 32
 slots = [None for i in range(maxSlotNum+1)]
@@ -122,11 +128,6 @@ class CsoundMagics(Magics):
         self.sco[line] = cell
 
 
-import ctcsound
-import ctypes
-import numpy as np
-import matplotlib.pyplot as plt
-import socket
 
 def getCsound():
     if slots[0] == None:
@@ -478,8 +479,6 @@ class ICsound(ctcsound.Csound):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
         sock.sendto(ctcsound.cstring(message), (self._clientAddr, self._clientPort))
 
-
-from IPython.core.display import display_javascript
 
 def load_ipython_extension(ip):
     ip.magics_manager.register(CsoundMagics)

@@ -21,8 +21,10 @@
     02111-1307 USA
 '''
 
-import ctcsound, numpy as np, ctypes as ct
 import unittest
+
+import ctcsound
+import numpy as np
 
 
 class TestAttributes(unittest.TestCase):

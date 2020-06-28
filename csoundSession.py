@@ -20,8 +20,9 @@
 '''
 
 import os
-import ctypes
+
 import ctcsound
+
 
 class CsoundSession(ctcsound.Csound):
     """A class for running a csound session"""
