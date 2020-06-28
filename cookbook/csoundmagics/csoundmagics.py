@@ -77,7 +77,7 @@ class CsoundMagics(Magics):
                     print("Erasing slot#: {}".format(slot))
                     return
                 print("No active ICsound engine at slot#: {}".format(slot))
-                return1 
+                return 1
             except ValueError as e:
                 print("Not a valid slot#: ", e.args[0])
                 return
