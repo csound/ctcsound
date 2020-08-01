@@ -38,7 +38,7 @@ slots = [None for i in range(maxSlotNum + 1)]
 class CsoundMagics(Magics):
     """Implement magic commands for Csound."""
     def __init__(self, shell):
-    	super(CsoundMagics, self).__init__(shell)
+        super(CsoundMagics, self).__init__(shell)
         ip = get_ipython()
         self.csd = {}
         ip.user_ns["__csd"] = self.csd
