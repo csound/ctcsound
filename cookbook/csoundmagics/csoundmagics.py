@@ -106,7 +106,7 @@ class CsoundMagics(Magics):
         if line == '':
             return "Usage: %%csd name"
         self.csd[line] = cell
-        return line, cell
+        #return line, cell
 
     @cell_magic
     def orc(self, line, cell):
@@ -114,7 +114,7 @@ class CsoundMagics(Magics):
         if line == '':
             return "Usage: %%orc name"
         self.orc[line] = cell
-        return line, cell
+        #return line, cell
 
     @cell_magic
     def sco(self, line, cell):
@@ -122,7 +122,7 @@ class CsoundMagics(Magics):
         if line == '':
             return "Usage: %%sco name"
         self.sco[line] = cell
-        return line, cell
+        #return line, cell
 
 
 import ctypes
