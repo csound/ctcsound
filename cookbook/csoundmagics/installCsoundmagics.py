@@ -14,7 +14,7 @@ dest = site.getsitepackages()[0]
 shutil.copy("csoundmagics.py", dest)
 
 # Copy csound mode in codemirror
-dest = os.path.join(notebook.DEFAULT_STATIC_FILES_PATH, "components", "codemirror", "mode", "csound")
+dest = os.path.join(dest, "nbclassic", "static", "components", "codemirror", "mode", "csound")
 if not os.path.exists(dest):
     os.mkdir(dest)
 shutil.copy("csound.js", dest)
